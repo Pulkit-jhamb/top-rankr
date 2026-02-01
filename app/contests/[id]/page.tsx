@@ -13,62 +13,43 @@ export default function ContestDetailPage() {
   const [showCodeInput, setShowCodeInput] = useState(false)
 
   useEffect(() => {
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/contests/${contestId}`)
-      .then(res => setContest(res.data.data))
-      .catch(err => {
-        console.error(err)
-        // Mock data for demo
-        setContest({
-          eventId: 'E302',
-          organizer: 'SocPros 2018 (Conf Home Page), IIT Bhubaneswar 🇮🇳',
-          type: 'Conference Event',
-          from: '10 Dec to 23 Dec 2017',
-          price: '$1000 (Open to Conference Participants Only. (Winner get $500, 1st Runnerup get $300, 2nd Runnerup get $200)',
-          problems: [
-            {
-              problemNumber: 302,
-              problemName: 'Opti1',
-              link: 'Click here for More info...',
-              dimensions: [
-                { d: 20, ranking: '36/36', submissions: 'view all my submissions' },
-                { d: 50, ranking: '34/34', submissions: 'view all my submissions' },
-                { d: 100, ranking: '25/25', submissions: 'view all my submissions' }
-              ],
-              myEventRankingProblem: '22/36',
-              myEventRankingOverall: '22/36'
-            },
-            {
-              problemNumber: 301,
-              problemName: 'Opti2',
-              link: 'Click here for More info...',
-              dimensions: [
-                { d: 20, ranking: '36/36', submissions: 'view all my submissions' },
-                { d: 50, ranking: '34/34', submissions: 'view all my submissions' },
-                { d: 100, ranking: '25/25', submissions: 'view all my submissions' }
-              ],
-              myEventRankingProblem: '22/36',
-              myEventRankingOverall: '22/36'
-            },
-            {
-              problemNumber: 300,
-              problemName: 'Opti3',
-              link: 'Click here for More info...',
-              dimensions: [
-                { d: 20, ranking: '36/36', submissions: 'view all my submissions' },
-                { d: 50, ranking: '34/34', submissions: 'view all my submissions' },
-                { d: 100, ranking: '25/25', submissions: 'view all my submissions' }
-              ],
-              myEventRankingProblem: '22/36',
-              myEventRankingOverall: '22/36'
-            }
-          ]
-        })
-      })
-  }, [contestId])
+    fetchContest();
+  }, [contestId]);
 
-  const handleSubmit = (problemId: number, dimension: number) => {
-    // Handle submission
-    toast.success(`Opening submission form for Problem ${problemId}, D=${dimension}`)
+  const fetchContest = async () => {
+    try {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests/${contestId}`);
+      setContest(response.data.data);
+    } catch (err) {
+      console.error('Failed to fetch contest:', err);
+      toast.error('Failed to load contest details');
+    }
+  }
+
+  const handleParticipate = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please login to participate');
+      return;
+    }
+
+    if (!eventCode.trim()) {
+      toast.error('Please enter event code');
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/contests/${contestId}/participate`,
+        { eventCode },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Successfully joined the contest!');
+      setShowCodeInput(false);
+      fetchContest();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to join contest');
+    }
   }
 
   if (!contest) return <div className="p-8 text-center">Loading contest...</div>
@@ -132,7 +113,7 @@ export default function ContestDetailPage() {
                     className="w-full border-2 border-gray-300 rounded px-3 py-2"
                   />
                   <button
-                    onClick={() => toast.success('Joined contest!')}
+                    onClick={handleParticipate}
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition"
                   >
                     Participate
@@ -151,7 +132,7 @@ export default function ContestDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-200">
-                <tr>
+                <tr className="bg-gray-200">
                   <th className="px-3 py-3 text-left font-bold border-r border-gray-300">Problem #</th>
                   <th className="px-3 py-3 text-left font-bold border-r border-gray-300">Problem Name</th>
                   <th className="px-3 py-3 text-left font-bold border-r border-gray-300 w-80">Submit Solution</th>
@@ -167,60 +148,54 @@ export default function ContestDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {contest.problems?.map((problem: any, index: number) => (
-                  <tr key={problem.problemNumber} className={`border-b border-gray-300 ${index % 2 === 0 ? 'bg-yellow-50' : 'bg-white'}`}>
+                {contest.problemDetails?.map((problem: any, index: number) => (
+                  <tr key={problem.problemId} className={`border-b border-gray-300 ${index % 2 === 0 ? 'bg-yellow-50' : 'bg-white'}`}>
                     <td className="px-3 py-4 border-r border-gray-300 font-medium">
-                      {problem.problemNumber}
+                      {problem.problemId}
                     </td>
                     <td className="px-3 py-4 border-r border-gray-300">
-                      <div className="font-bold">{problem.problemName}</div>
-                      <a href={`/problem/${problem.problemNumber}`} className="text-blue-600 hover:underline text-xs">
-                        {problem.link}
+                      <div className="font-bold">{problem.name}</div>
+                      <a href={`/problems/${problem.problemId}`} className="text-blue-600 hover:underline text-xs">
+                        Click here for More info...
                       </a>
                     </td>
                     <td className="px-3 py-4 border-r border-gray-300">
                       <div className="space-y-2">
-                        {problem.dimensions.map((dim: any) => (
-                          <div key={dim.d} className="flex items-center gap-2 text-xs bg-yellow-100 p-2 rounded">
-                            <span className="font-medium bg-yellow-200 px-2 py-1 rounded">For D={dim.d}</span>
-                            <input 
-                              type="text" 
-                              placeholder="Solution"
-                              className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs"
-                            />
-                            <button
-                              onClick={() => handleSubmit(problem.problemNumber, dim.d)}
-                              className="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded transition"
+                        {problem.dimensions?.map((dim: any) => (
+                          <div key={dim.dimension} className="flex items-center gap-2 text-xs bg-yellow-100 p-2 rounded">
+                            <span className="font-medium bg-yellow-200 px-2 py-1 rounded">For D={dim.dimension}</span>
+                            <a 
+                              href={`/problems/${problem.problemId}`}
+                              className="flex-1 bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded transition text-center"
                             >
-                              Submit
-                            </button>
-                            <a href="#" className="text-blue-600 hover:underline">Help</a>
+                              Go to Problem
+                            </a>
                           </div>
                         ))}
                       </div>
                     </td>
                     <td className="px-3 py-4 border-r border-gray-300">
                       <div className="space-y-2 text-center">
-                        {problem.dimensions.map((dim: any) => (
-                          <div key={dim.d} className="text-xs">
-                            <div className="font-bold">{dim.ranking}</div>
-                            <a href="#" className="text-blue-600 hover:underline block">{dim.submissions}</a>
+                        {problem.dimensions?.map((dim: any) => (
+                          <div key={dim.dimension} className="text-xs">
+                            <div className="font-bold">-</div>
+                            <a href={`/problems/${problem.problemId}`} className="text-blue-600 hover:underline block">view submissions</a>
                           </div>
                         ))}
                       </div>
                     </td>
                     <td className="px-3 py-4 border-r border-gray-300 text-center">
-                      <div className="font-bold text-lg">{problem.myEventRankingProblem}</div>
-                      <a href="#" className="text-blue-600 hover:underline text-xs block mt-1">
-                        View all rankers of the Problem
+                      <div className="font-bold text-lg">-</div>
+                      <a href={`/problems/${problem.problemId}`} className="text-blue-600 hover:underline text-xs block mt-1">
+                        View all rankers
                       </a>
                     </td>
                     <td className="px-3 py-4 text-center">
                       {index === 0 && (
                         <div>
-                          <div className="font-bold text-lg">{problem.myEventRankingOverall}</div>
-                          <a href="#" className="text-blue-600 hover:underline text-xs block mt-1">
-                            View all rankers of the event
+                          <div className="font-bold text-lg">-</div>
+                          <a href={`/contests/${contestId}/leaderboard`} className="text-blue-600 hover:underline text-xs block mt-1">
+                            View event leaderboard
                           </a>
                         </div>
                       )}

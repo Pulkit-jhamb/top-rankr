@@ -1,6 +1,21 @@
+'use client'
 import TopRankerNavbar from '@/components/navbar'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
 
 export default function StatisticsPage() {
+  const [statistics, setStatistics] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`)
+      .then(res => {
+        setStatistics(res.data.data)
+      })
+      .catch(err => console.error('Failed to fetch statistics:', err))
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <TopRankerNavbar />
@@ -18,32 +33,38 @@ export default function StatisticsPage() {
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-white border-2 border-gray-300 rounded-lg shadow-sm p-8">
           <h2 className="text-2xl font-bold mb-6 text-black">Platform Statistics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-3xl font-bold text-blue-600 mb-2">203,922</div>
-              <div className="text-gray-700">Total Submissions</div>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading statistics...</div>
+          ) : !statistics ? (
+            <div className="text-center py-8 text-gray-500">Failed to load statistics</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-3xl font-bold text-blue-600 mb-2">{statistics.totalSubmissions?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Total Submissions</div>
+              </div>
+              <div className="p-6 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-3xl font-bold text-green-600 mb-2">{statistics.totalUsers?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Registered Users</div>
+              </div>
+              <div className="p-6 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="text-3xl font-bold text-purple-600 mb-2">{statistics.totalProblems?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Problems</div>
+              </div>
+              <div className="p-6 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="text-3xl font-bold text-yellow-600 mb-2">{statistics.totalCountries || 0}</div>
+                <div className="text-gray-700">Countries</div>
+              </div>
+              <div className="p-6 bg-red-50 rounded-lg border border-red-200">
+                <div className="text-3xl font-bold text-red-600 mb-2">{statistics.indiaUsers?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Users from India</div>
+              </div>
+              <div className="p-6 bg-indigo-50 rounded-lg border border-indigo-200">
+                <div className="text-3xl font-bold text-indigo-600 mb-2">{statistics.academicUsers?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Academic Users</div>
+              </div>
             </div>
-            <div className="p-6 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-3xl font-bold text-green-600 mb-2">54,815</div>
-              <div className="text-gray-700">Registered Users</div>
-            </div>
-            <div className="p-6 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="text-3xl font-bold text-purple-600 mb-2">6,397</div>
-              <div className="text-gray-700">Problems</div>
-            </div>
-            <div className="p-6 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="text-3xl font-bold text-yellow-600 mb-2">120</div>
-              <div className="text-gray-700">Countries</div>
-            </div>
-            <div className="p-6 bg-red-50 rounded-lg border border-red-200">
-              <div className="text-3xl font-bold text-red-600 mb-2">20,000</div>
-              <div className="text-gray-700">Users from India</div>
-            </div>
-            <div className="p-6 bg-indigo-50 rounded-lg border border-indigo-200">
-              <div className="text-3xl font-bold text-indigo-600 mb-2">50,000</div>
-              <div className="text-gray-700">Academic Users</div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

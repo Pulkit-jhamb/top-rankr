@@ -92,6 +92,10 @@ export default function ProblemDetailPage() {
   };
 
   const handleSubmit = async (dimension: number) => {
+    console.log('Submit clicked for dimension:', dimension);
+    console.log('Is authenticated:', isAuthenticated);
+    console.log('Solution value:', solutions[dimension]);
+    
     if (!isAuthenticated) {
       setMessages((prev: any) => ({ ...prev, [dimension]: 'Please login to submit!' }));
       setTimeout(() => router.push('/auth'), 2000);
@@ -105,9 +109,12 @@ export default function ProblemDetailPage() {
     }
 
     setSubmitting((prev: any) => ({ ...prev, [dimension]: true }));
-    setMessages((prev: any) => ({ ...prev, [dimension]: '' }));
+    setMessages((prev: any) => ({ ...prev, [dimension]: 'Submitting...' }));
     
     try {
+      console.log('Sending submission to:', `${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/submit`);
+      console.log('Payload:', { solution: solutionArray, dimension });
+      
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/submit`,
         {
@@ -121,7 +128,12 @@ export default function ProblemDetailPage() {
         }
       );
       
-      setMessages((prev: any) => ({ ...prev, [dimension]: 'Submitted successfully! Evaluating...' }));
+      console.log('Submission response:', response.data);
+      
+      setMessages((prev: any) => ({ 
+        ...prev, 
+        [dimension]: `✓ Success! Score: ${response.data.score?.toFixed(6) || 'N/A'}` 
+      }));
       setSolutions((prev: any) => ({ ...prev, [dimension]: '' }));
       
       // Refresh rankings after successful submission
@@ -142,11 +154,18 @@ export default function ProblemDetailPage() {
       
       setTimeout(() => {
         setMessages((prev: any) => ({ ...prev, [dimension]: '' }));
-      }, 3000);
+      }, 5000);
     } catch (error: any) {
+      console.error('Submission error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error message:', error.response?.data?.message);
+      console.error('Full error:', JSON.stringify(error.response?.data, null, 2));
+      
+      const errorMsg = error.response?.data?.message || error.message || 'Submission failed!';
       setMessages((prev: any) => ({ 
         ...prev, 
-        [dimension]: error.response?.data?.message || 'Submission failed!' 
+        [dimension]: `✗ Error: ${errorMsg}` 
       }));
     } finally {
       setSubmitting((prev: any) => ({ ...prev, [dimension]: false }));
@@ -294,9 +313,6 @@ export default function ProblemDetailPage() {
                             >
                               {submitting[dim.dimension] ? 'Submitting...' : 'Submit'}
                             </button>
-                            <button className="text-blue-600 hover:underline text-sm">
-                              Help
-                            </button>
                           </div>
                           {messages[dim.dimension] && (
                             <div className={`text-xs ${messages[dim.dimension].includes('success') ? 'text-green-600' : 'text-red-600'}`}>
@@ -313,7 +329,7 @@ export default function ProblemDetailPage() {
                             <span className="text-gray-400">-</span>
                           )}
                         </div>
-                        <Link href="#" className="text-blue-600 hover:underline text-xs">
+                        <Link href={`/problems/${problemId}/submissions`} className="text-blue-600 hover:underline text-xs">
                           view all my submissions
                         </Link>
                       </td>

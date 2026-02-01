@@ -8,10 +8,12 @@ import axios from "axios";
 
 export default function Page() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProblems, setTotalProblems] = useState(0);
   const [difficulty, setDifficulty] = useState("All");
   const [status, setStatus] = useState("All");
   const [problems, setProblems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRankings, setUserRankings] = useState<any>({});
   const router = useRouter();
@@ -47,57 +49,74 @@ export default function Page() {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems`, {
         params: {
           page: currentPage,
-          limit: 10,
-          difficulty: difficulty
+          limit: 20,
+          difficulty: difficulty === 'All' ? undefined : difficulty
         }
       });
       setProblems(response.data.data || []);
+      
+      // Set pagination info from response
+      if (response.data.pagination) {
+        setTotalPages(response.data.pagination.pages || 1);
+        setTotalProblems(response.data.pagination.total || 0);
+      } else {
+        setTotalPages(1);
+        setTotalProblems(response.data.data?.length || 0);
+      }
     } catch (error) {
       console.error('Failed to fetch problems:', error);
-      setProblems([
-        {
-          problemId: "302",
-          name: "Opti1",
-          level: "Easy",
-          cc: "��",
-          owner: "JC Bansal, SAU, New Delhi.",
-          dimensions: [
-            { dimension: 20, submissions: 36 },
-            { dimension: 50, submissions: 34 },
-            { dimension: 100, submissions: 25 },
-          ],
-          totalSubmissions: 95,
-        },
-        {
-          problemId: "301",
-          name: "Opti2",
-          level: "Medium",
-          cc: "��",
-          owner: "MK Tiwari, IIT Kgp.",
-          dimensions: [
-            { dimension: 20, submissions: 36 },
-            { dimension: 50, submissions: 34 },
-            { dimension: 100, submissions: 25 },
-          ],
-          totalSubmissions: 95,
-        },
-        {
-          problemId: "300",
-          name: "Opti3",
-          level: "Hard",
-          cc: "��",
-          owner: "Manoj Thakur, IIT Mandi.",
-          dimensions: [
-            { dimension: 20, submissions: 36 },
-            { dimension: 50, submissions: 34 },
-            { dimension: 100, submissions: 25 },
-          ],
-          totalSubmissions: 95,
-        },
-      ]);
+      setProblems([]);
+      setTotalPages(1);
+      setTotalProblems(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 11;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 6) {
+        for (let i = 1; i <= 9; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 5) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 8; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 3; i <= currentPage + 3; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
   };
 
   const handleSolveProblem = (problemId: string) => {
@@ -127,25 +146,57 @@ export default function Page() {
         <div className="flex items-center justify-between mb-6">
           {/* Pagination */}
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">
-              &lt;
+            <button 
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              &lt;&lt;
             </button>
-            <span className="px-3 py-1 text-gray-700">Previous</span>
-            <button className="px-3 py-1 bg-blue-500 text-white rounded font-medium">1</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">2</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">3</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">4</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">5</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">6</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">7</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">8</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">9</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">10</button>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">11</button>
-            <span className="px-3 py-1 text-gray-700">Next</span>
-            <button className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50">
-              &gt;
+            <button 
+              onClick={handlePrevious}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Previous
             </button>
+            
+            {getPageNumbers().map((page, index) => (
+              page === '...' ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-gray-700">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page as number)}
+                  className={`px-3 py-1 rounded font-medium ${
+                    currentPage === page 
+                      ? 'bg-blue-500 text-white' 
+                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+            
+            <button 
+              onClick={handleNext}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Next
+            </button>
+            <button 
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              &gt;&gt;
+            </button>
+            
+            <span className="ml-2 text-sm text-gray-600">
+              Page {currentPage} of {totalPages} ({totalProblems} total)
+            </span>
           </div>
 
           {/* Filters */}
@@ -175,31 +226,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Status Filter */}
-            <div className="bg-white border border-gray-300 px-4 py-2 rounded">
-              <div className="flex items-center gap-4">
-                <span className="font-semibold text-gray-700 text-sm" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>Status</span>
-                <div className="flex flex-col gap-1">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="status" checked={status === "All"} onChange={() => setStatus("All")} />
-                    <span>All</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="status" checked={status === "Solved"} onChange={() => setStatus("Solved")} />
-                    <span>Solved</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="status" checked={status === "Unsolved"} onChange={() => setStatus("Unsolved")} />
-                    <span>Unsolved</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Sorted By */}
-            <button className="bg-white border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50">
-              Sorted By
-            </button>
           </div>
         </div>
 

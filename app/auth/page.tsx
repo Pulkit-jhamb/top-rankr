@@ -62,9 +62,11 @@ export default function UserProfilePage() {
 
       if (response.data.token) {
         localStorage.setItem('token', response.data.token)
-        localStorage.setItem('userName', response.data.userName || response.data.email)
-        localStorage.setItem('email', response.data.email)
-        localStorage.setItem('role', response.data.role)
+        localStorage.setItem('userName', response.data.userName || response.data.user?.name || response.data.email)
+        localStorage.setItem('email', response.data.email || response.data.user?.email)
+        localStorage.setItem('role', response.data.role || response.data.user?.role)
+        // Login returns user_id directly, signup returns user.id
+        localStorage.setItem('userId', response.data.user_id || response.data.user?.id)
         
         router.push('/home')
       }

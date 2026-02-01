@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 type NavItem = {
   label: string;
@@ -18,7 +19,6 @@ const navItems: NavItem[] = [
   { label: "Leaderboard", href: "/leadership" },
   { label: "Contribute", href: "/contribute"},
   { label: "Statistics", href: "/statistics" },
-  { label: "Discuss", href: "/discuss" },
 ];
 
 export default function TopRankerNavbar() {
@@ -29,9 +29,23 @@ export default function TopRankerNavbar() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const name = localStorage.getItem('userName') || localStorage.getItem('email') || 'User';
+    const userId = localStorage.getItem('userId');
     setIsAuthenticated(!!token);
-    setUserName(name);
+    
+    if (token && userId) {
+      // Fetch user data from backend
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics/user/${userId}`)
+        .then(res => {
+          const user = res.data.data.user;
+          setUserName(user.name || user.email || 'User');
+        })
+        .catch(err => {
+          console.error('Failed to fetch user data:', err);
+          // Fallback to localStorage
+          const name = localStorage.getItem('userName') || localStorage.getItem('email') || 'User';
+          setUserName(name);
+        });
+    }
   }, []);
 
   const handleLogout = () => {
@@ -44,11 +58,12 @@ export default function TopRankerNavbar() {
   };
 
   const getInitials = (name: string) => {
-    const parts = name.split(' ');
+    if (!name) return 'U';
+    const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return name.substring(0, 2).toUpperCase();
+    return name.charAt(0).toUpperCase();
   };
 
   return (
@@ -108,7 +123,7 @@ export default function TopRankerNavbar() {
                       Profile
                     </Link>
                     <Link
-                      href="/my-submissions"
+                      href="/submissions"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setShowDropdown(false)}
                     >
