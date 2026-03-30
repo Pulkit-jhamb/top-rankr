@@ -13,6 +13,8 @@ export default function Page() {
   const [difficulty, setDifficulty] = useState("All");
   const [status, setStatus] = useState("All");
   const [problems, setProblems] = useState<any[]>([]);
+  const [filteredProblems, setFilteredProblems] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRankings, setUserRankings] = useState<any>({});
@@ -53,7 +55,9 @@ export default function Page() {
           difficulty: difficulty === 'All' ? undefined : difficulty
         }
       });
-      setProblems(response.data.data || []);
+      const problemsData = response.data.data || [];
+      setProblems(problemsData);
+      setFilteredProblems(problemsData);
       
       // Set pagination info from response
       if (response.data.pagination) {
@@ -66,11 +70,29 @@ export default function Page() {
     } catch (error) {
       console.error('Failed to fetch problems:', error);
       setProblems([]);
+      setFilteredProblems([]);
       setTotalPages(1);
       setTotalProblems(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredProblems(problems);
+      return;
+    }
+
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = problems.filter(problem => 
+      problem.name?.toLowerCase().includes(lowercaseQuery) ||
+      problem.problemId?.toString().includes(lowercaseQuery) ||
+      problem.owner?.toLowerCase().includes(lowercaseQuery) ||
+      problem.level?.toLowerCase().includes(lowercaseQuery)
+    );
+    setFilteredProblems(filtered);
   };
 
   const handlePageChange = (page: number) => {
@@ -140,6 +162,22 @@ export default function Page() {
             <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
           </svg>
           <h1 className="text-2xl font-bold">Problems</h1>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search problems by name, ID, owner, or difficulty..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+            />
+            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
 
         {/* Pagination and Filters */}
@@ -254,14 +292,14 @@ export default function Page() {
                     Loading problems...
                   </td>
                 </tr>
-              ) : problems.length === 0 ? (
+              ) : filteredProblems.length === 0 ? (
                 <tr>
                   <td colSpan={isAuthenticated ? 9 : 8} className="px-4 py-8 text-center text-gray-500">
-                    No problems found
+                    {searchQuery ? `No problems found matching "${searchQuery}"` : 'No problems found'}
                   </td>
                 </tr>
               ) : (
-                problems.map((problem, index) => (
+                filteredProblems.map((problem, index) => (
                   <tr key={problem.problemId} className={`border-b border-black ${index % 2 === 0 ? "bg-[#f5f5dc]" : "bg-[#e6f3ff]"}`}>
                     <td className="px-4 py-6 font-bold text-black border-r border-black align-top">{problem.problemId}</td>
                     <td className="px-4 py-6 border-r border-black align-top">

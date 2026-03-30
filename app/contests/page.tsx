@@ -19,6 +19,8 @@ interface Contest {
 
 export default function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([])
+  const [filteredContests, setFilteredContests] = useState<Contest[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -39,7 +41,9 @@ export default function ContestsPage() {
           type: filter === 'all' ? undefined : filter === 'conference' ? 'Conference Event' : filter === 'class' ? 'Class Test' : filter === 'open' ? 'Open to All' : undefined
         }
       });
-      setContests(response.data.data || []);
+      const contestsData = response.data.data || [];
+      setContests(contestsData);
+      setFilteredContests(contestsData);
       
       // Set pagination info from response
       if (response.data.pagination) {
@@ -53,12 +57,30 @@ export default function ContestsPage() {
     } catch (err) {
       console.error('Failed to fetch contests:', err);
       setContests([]);
+      setFilteredContests([]);
       setTotalPages(1);
       setTotalContests(0);
     } finally {
       setLoading(false);
     }
   }
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredContests(contests);
+      return;
+    }
+
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = contests.filter(contest => 
+      contest.name?.toLowerCase().includes(lowercaseQuery) ||
+      contest.eventId?.toLowerCase().includes(lowercaseQuery) ||
+      contest.organizer?.toLowerCase().includes(lowercaseQuery) ||
+      contest.type?.toLowerCase().includes(lowercaseQuery)
+    );
+    setFilteredContests(filtered);
+  };
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -125,6 +147,22 @@ export default function ContestsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search contests by name, event ID, organizer, or type..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+            />
+            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
         {/* Pagination */}
         <div className="flex justify-center gap-2 mb-6 text-black items-center">
           <button 
@@ -243,14 +281,14 @@ export default function ContestsPage() {
                       </div>
                     </td>
                   </tr>
-                ) : contests.length === 0 ? (
+                ) : filteredContests.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                      No contests found
+                      {searchQuery ? `No contests found matching "${searchQuery}"` : 'No contests found'}
                     </td>
                   </tr>
                 ) : (
-                  contests.map((contest, index) => (
+                  filteredContests.map((contest, index) => (
                   <tr 
                     key={contest.eventId} 
                     className={`border-b border-gray-300 ${index % 2 === 0 ? 'bg-yellow-50' : 'bg-white'} hover:bg-blue-50 transition`}

@@ -169,10 +169,10 @@ export default function Page() {
           <div className="grid grid-cols-2 divide-x divide-black">
             <div className="p-8">
               <ul className="space-y-2 text-black text-sm">
-                <li>• Prathivi, Thapar University.</li>
-                <li>• Rohan Piplani, Thapar University.</li>
-                <li>• Gaurav, Thapar University.</li>
-                <li>• Arush Nagpal, Thapar University.</li>
+                <li>• Durvish Khurana, Thapar University.</li>
+                <li>• Pulkit Jhamb, Thapar University.</li>
+                <li>• Aarushi Garg, Thapar University.</li>
+                <li>• Vidhi Aggarwal, Thapar University.</li>
               </ul>
             </div>
             <div className="p-8">

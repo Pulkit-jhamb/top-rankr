@@ -9,9 +9,12 @@ export default function LeaderboardPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [data, setData] = useState<any[]>([])
+  const [filteredData, setFilteredData] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     setCurrentPage(1); // Reset to page 1 when tab changes
+    setSearchQuery(''); // Clear search when tab changes
   }, [activeTab]);
 
   useEffect(() => {
@@ -28,7 +31,9 @@ export default function LeaderboardPage() {
         params: activeTab === 'users' ? { page: currentPage, limit: 50 } : {}
       });
       
-      setData(response.data.data || []);
+      const responseData = response.data.data || [];
+      setData(responseData);
+      setFilteredData(responseData);
       
       // Set pagination info (only users endpoint has pagination)
       if (activeTab === 'users' && response.data.pagination) {
@@ -42,10 +47,41 @@ export default function LeaderboardPage() {
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err);
       setData([]);
+      setFilteredData([]);
       setTotalPages(1);
       setTotalItems(0);
     }
   }
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredData(data);
+      return;
+    }
+
+    const lowercaseQuery = query.toLowerCase();
+    const filtered = data.filter(item => {
+      switch(activeTab) {
+        case 'users':
+          return item.name?.toLowerCase().includes(lowercaseQuery) ||
+                 item.email?.toLowerCase().includes(lowercaseQuery) ||
+                 item.country?.toLowerCase().includes(lowercaseQuery) ||
+                 item.institution?.toLowerCase().includes(lowercaseQuery);
+        case 'countries':
+          return item.country?.toLowerCase().includes(lowercaseQuery);
+        case 'problemSetters':
+          return item.name?.toLowerCase().includes(lowercaseQuery) ||
+                 item.institution?.toLowerCase().includes(lowercaseQuery);
+        case 'institutions':
+          return item.institution?.toLowerCase().includes(lowercaseQuery) ||
+                 item.country?.toLowerCase().includes(lowercaseQuery);
+        default:
+          return true;
+      }
+    });
+    setFilteredData(filtered);
+  };
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -96,13 +132,13 @@ export default function LeaderboardPage() {
   const renderContent = () => {
     switch(activeTab) {
       case 'users':
-        return <UsersLeaderboard data={data} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
+        return <UsersLeaderboard data={filteredData} searchQuery={searchQuery} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
       case 'countries':
-        return <CountriesLeaderboard data={data} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
+        return <CountriesLeaderboard data={filteredData} searchQuery={searchQuery} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
       case 'problemSetters':
-        return <ProblemSettersLeaderboard data={data} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
+        return <ProblemSettersLeaderboard data={filteredData} searchQuery={searchQuery} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
       case 'institutions':
-        return <InstitutionsLeaderboard data={data} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
+        return <InstitutionsLeaderboard data={filteredData} searchQuery={searchQuery} currentPage={currentPage} totalPages={totalPages} totalItems={totalItems} onPageChange={handlePageChange} onPrevious={handlePrevious} onNext={handleNext} getPageNumbers={getPageNumbers} />
     }
   }
 
@@ -121,6 +157,22 @@ export default function LeaderboardPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={`Search ${activeTab === 'users' ? 'by name, email, country, or institution' : activeTab === 'countries' ? 'by country name' : activeTab === 'problemSetters' ? 'by name or institution' : 'by institution or country'}...`}
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+            />
+            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="bg-gray-200 p-4 rounded-t-lg">
           <div className="flex gap-6">
@@ -176,8 +228,9 @@ export default function LeaderboardPage() {
 }
 
 // Users Leaderboard Component
-function UsersLeaderboard({ data, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
+function UsersLeaderboard({ data, searchQuery, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
   data: any[], 
+  searchQuery: string,
   currentPage: number, 
   totalPages: number, 
   totalItems: number,
@@ -265,7 +318,9 @@ function UsersLeaderboard({ data, currentPage, totalPages, totalItems, onPageCha
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">No data available</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    {searchQuery ? `No users found matching "${searchQuery}"` : 'No data available'}
+                  </td>
                 </tr>
               ) : (
                 data.map((item: any, index: number) => (
@@ -291,8 +346,9 @@ function UsersLeaderboard({ data, currentPage, totalPages, totalItems, onPageCha
 }
 
 // Countries Leaderboard Component
-function CountriesLeaderboard({ data, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
+function CountriesLeaderboard({ data, searchQuery, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
   data: any[], 
+  searchQuery: string,
   currentPage: number, 
   totalPages: number, 
   totalItems: number,
@@ -380,7 +436,9 @@ function CountriesLeaderboard({ data, currentPage, totalPages, totalItems, onPag
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">No data available</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    {searchQuery ? `No countries found matching "${searchQuery}"` : 'No data available'}
+                  </td>
                 </tr>
               ) : (
                 data.map((country, index) => (
@@ -407,8 +465,9 @@ function CountriesLeaderboard({ data, currentPage, totalPages, totalItems, onPag
 }
 
 // Problem Setters Leaderboard Component
-function ProblemSettersLeaderboard({ data, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
+function ProblemSettersLeaderboard({ data, searchQuery, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
   data: any[], 
+  searchQuery: string,
   currentPage: number, 
   totalPages: number, 
   totalItems: number,
@@ -496,7 +555,9 @@ function ProblemSettersLeaderboard({ data, currentPage, totalPages, totalItems, 
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">No data available</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    {searchQuery ? `No problem setters found matching "${searchQuery}"` : 'No data available'}
+                  </td>
                 </tr>
               ) : (
                 data.map((setter, index) => (
@@ -527,8 +588,9 @@ function ProblemSettersLeaderboard({ data, currentPage, totalPages, totalItems, 
 }
 
 // Institutions Leaderboard Component
-function InstitutionsLeaderboard({ data, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
+function InstitutionsLeaderboard({ data, searchQuery, currentPage, totalPages, totalItems, onPageChange, onPrevious, onNext, getPageNumbers }: { 
   data: any[], 
+  searchQuery: string,
   currentPage: number, 
   totalPages: number, 
   totalItems: number,
@@ -617,7 +679,9 @@ function InstitutionsLeaderboard({ data, currentPage, totalPages, totalItems, on
             <tbody>
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">No data available</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    {searchQuery ? `No institutions found matching "${searchQuery}"` : 'No data available'}
+                  </td>
                 </tr>
               ) : (
                 data.map((inst, index) => (
