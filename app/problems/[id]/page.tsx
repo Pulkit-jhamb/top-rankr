@@ -1,180 +1,178 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
+import api from '@/lib/api'
 import TopRankerNavbar from '@/components/navbar'
 import Link from 'next/link'
+
+interface DimRanking {
+  best_scores: Record<string, number>;
+  ranks: Record<string, number>;
+  total_participants: Record<string, number>;
+}
+
+interface Dimension {
+  dimension: number;
+  submissions: number;
+}
+
+interface FitnessFunction {
+  formula?: string;
+  constraint?: string;
+  codeFiles?: boolean;
+}
+
+interface LeaderboardEntry {
+  name: string;
+  country?: string;
+  score?: number;
+}
+
+interface Problem {
+  problemId: string;
+  name: string;
+  description?: string;
+  owner?: string;
+  type?: string;
+  cc?: string;
+  submissionDate?: string;
+  totalSubmissions?: number;
+  fitnessFunction?: FitnessFunction;
+  dimensions?: Dimension[];
+}
 
 export default function ProblemDetailPage() {
   const params = useParams()
   const router = useRouter()
   const problemId = params.id
-  
-  const [problem, setProblem] = useState<any>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userRankings, setUserRankings] = useState<any>({})
-  const [solutions, setSolutions] = useState<any>({})
-  const [submitting, setSubmitting] = useState<any>({})
-  const [messages, setMessages] = useState<any>({})
-  const [allUserRankings, setAllUserRankings] = useState<any>({})
+
+  const [problem, setProblem] = useState<Problem | null>(null)
+  const [fetchError, setFetchError] = useState('')
+  const [isAuthenticated] = useState(() =>
+    typeof window !== 'undefined' ? !!localStorage.getItem('token') : false
+  )
+  const [userRankings, setUserRankings] = useState<Record<string, DimRanking>>({})
+  const [solutions, setSolutions] = useState<Record<number, string>>({})
+  const [submitting, setSubmitting] = useState<Record<number, boolean>>({})
+  const [messages, setMessages] = useState<Record<number, string>>({})
+  const [leaderboardByDim, setLeaderboardByDim] = useState<Record<number, LeaderboardEntry[]>>({})
+
+  const refreshUserRankings = useCallback(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics/user/${userId}`)
+      .then(res => setUserRankings(res.data.data?.user?.problem_rankings || {}))
+      .catch(err => console.error('Failed to fetch user rankings:', err));
+  }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-    
     // Fetch problem details
     axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}`)
-      .then(res => setProblem(res.data.data))
-      .catch(err => {
-        console.error(err)
-        // For demo purposes, use mock data if API fails
-        setProblem({
-          problemId: '302',
-          name: 'Optimization 1',
-          description: 'Asd ad ad asd asda sdsad asd asd asdsad asd asdas asd asd asd adasd ad sada d asd asd ad asd adassd asd asd ad ad asd sad ad sfads adasfrdfsdfae a asd sfgsdf asdssad ad adsadfreefvcac adsdafafg',
-          owner: 'JC Bansal, SAU, New Delhi',
-          ownerName: 'JC Bansal',
-          ownerInstitution: 'SAU, New Delhi',
-          type: 'Multi Model, Constraint, Multi Dimentional',
-          level: 'Easy',
-          submissionDate: '23 Dec 2017',
-          totalSubmissions: '95 (36 + 34 + 25)',
-          fitnessFunction: {
-            formula: 'f(x) = -20e^(-0.02√(1/D∑x_i²)) - e^(1/D∑cos(2πx_i)) + 20 + e',
-            constraint: 'subject to -35 ≤ x_i ≤ 35. The global minimum is located at origin x* = (0,...,0) with f(x*) = 0.',
-          },
-          dimensions: [
-            { dimension: 20, submissions: 36 },
-            { dimension: 50, submissions: 34 },
-            { dimension: 100, submissions: 25 }
-          ],
-          topRankers: {
-            20: [
-              { rank: 1, username: '', country: '' },
-              { rank: 2, username: '', country: '' },
-              { rank: 3, username: '', country: '' }
-            ],
-            50: [
-              { rank: 1, username: '', country: '' },
-              { rank: 2, username: '', country: '' },
-              { rank: 3, username: '', country: '' }
-            ],
-            100: [
-              { rank: 1, username: '', country: '' },
-              { rank: 2, username: '', country: '' },
-              { rank: 3, username: '', country: '' }
-            ]
-          }
-        })
-      })
-    
-    // Fetch user rankings if authenticated
-    if (token) {
-      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems/user/rankings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      .then(res => {
+        const p = res.data.data;
+        setProblem(p);
+        // Fetch top 3 leaderboard for each dimension in parallel
+        if (p?.dimensions?.length) {
+          const dimFetches = p.dimensions.map((d: { dimension: number }) =>
+            axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/leaderboard`, {
+              params: { dimension: d.dimension, limit: 3 }
+            }).then(r => ({ dim: d.dimension, data: r.data.data || [] }))
+              .catch(() => ({ dim: d.dimension, data: [] }))
+          );
+          Promise.all(dimFetches).then(results => {
+            const byDim: Record<number, LeaderboardEntry[]> = {};
+            results.forEach(r => { byDim[r.dim] = r.data; });
+            setLeaderboardByDim(byDim);
+          });
         }
       })
-        .then(res => {
-          setUserRankings(res.data.data || {});
-        })
-        .catch(err => {
-          console.error('Failed to fetch user rankings:', err);
-        });
-    }
-  }, [problemId])
+      .catch(err => {
+        console.error('Failed to fetch problem:', err);
+        setFetchError(err.response?.data?.message || 'Failed to load problem. Please try again.');
+      });
+
+    if (isAuthenticated) refreshUserRankings();
+  }, [problemId, isAuthenticated, refreshUserRankings])
 
   const handleSolutionChange = (dimension: number, value: string) => {
-    setSolutions((prev: any) => ({
+    setSolutions(prev => ({
       ...prev,
       [dimension]: value
     }));
   };
 
   const handleSubmit = async (dimension: number) => {
-    console.log('Submit clicked for dimension:', dimension);
-    console.log('Is authenticated:', isAuthenticated);
-    console.log('Solution value:', solutions[dimension]);
-    
     if (!isAuthenticated) {
-      setMessages((prev: any) => ({ ...prev, [dimension]: 'Please login to submit!' }));
+      setMessages(prev => ({ ...prev, [dimension]: 'Please login to submit!' }));
       setTimeout(() => router.push('/auth'), 2000);
       return;
     }
 
-    const solutionArray = solutions[dimension]?.trim();
-    if (!solutionArray) {
-      setMessages((prev: any) => ({ ...prev, [dimension]: 'Please enter a solution array!' }));
+    const rawInput = solutions[dimension]?.trim();
+    if (!rawInput) {
+      setMessages(prev => ({ ...prev, [dimension]: 'Please enter a solution array!' }));
       return;
     }
 
-    setSubmitting((prev: any) => ({ ...prev, [dimension]: true }));
-    setMessages((prev: any) => ({ ...prev, [dimension]: 'Submitting...' }));
-    
+    // Parse comma- or space-separated floats into an array
+    const xValues = rawInput.split(/[\s,]+/).filter(Boolean).map(Number);
+    if (xValues.some(v => !isFinite(v))) {
+      setMessages(prev => ({ ...prev, [dimension]: '✗ Error: All values must be valid numbers.' }));
+      return;
+    }
+    if (xValues.length !== dimension) {
+      setMessages(prev => ({ ...prev, [dimension]: `✗ Error: Expected ${dimension} values, got ${xValues.length}.` }));
+      return;
+    }
+
+    setSubmitting(prev => ({ ...prev, [dimension]: true }));
+    setMessages(prev => ({ ...prev, [dimension]: 'Submitting...' }));
+
     try {
-      console.log('Sending submission to:', `${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/submit`);
-      console.log('Payload:', { solution: solutionArray, dimension });
-      
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/submit`,
-        {
-          solution: solutionArray,
-          dimension: dimension
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
+      const response = await api.post(
+        `/api/problems/${problemId}/submit`,
+        { x: xValues, dimension }
       );
-      
-      console.log('Submission response:', response.data);
-      
-      setMessages((prev: any) => ({ 
-        ...prev, 
-        [dimension]: `✓ Success! Score: ${response.data.score?.toFixed(6) || 'N/A'}` 
+
+      const { score, rank, submissions_remaining } = response.data;
+      setMessages(prev => ({
+        ...prev,
+        [dimension]: `✓ Score: ${score?.toFixed(4) ?? 'N/A'} | Rank: ${rank ?? '-'} | ${submissions_remaining ?? '?'} submissions left today`
       }));
-      setSolutions((prev: any) => ({ ...prev, [dimension]: '' }));
-      
-      // Refresh rankings after successful submission
-      const token = localStorage.getItem('token');
-      if (token) {
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems/user/rankings`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-          .then(res => {
-            setUserRankings(res.data.data || {});
-          })
-          .catch(err => {
-            console.error('Failed to fetch user rankings:', err);
-          });
-      }
-      
-      setTimeout(() => {
-        setMessages((prev: any) => ({ ...prev, [dimension]: '' }));
-      }, 5000);
-    } catch (error: any) {
-      console.error('Submission error:', error);
-      console.error('Error response:', error.response);
-      console.error('Error response data:', error.response?.data);
-      console.error('Error message:', error.response?.data?.message);
-      console.error('Full error:', JSON.stringify(error.response?.data, null, 2));
-      
-      const errorMsg = error.response?.data?.message || error.message || 'Submission failed!';
-      setMessages((prev: any) => ({ 
-        ...prev, 
-        [dimension]: `✗ Error: ${errorMsg}` 
-      }));
+      setSolutions(prev => ({ ...prev, [dimension]: '' }));
+      refreshUserRankings();
+
+      setTimeout(() => setMessages(prev => ({ ...prev, [dimension]: '' })), 7000);
+    } catch (error) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      const errorMsg = axiosErr.response?.data?.message || 'Submission failed!';
+      setMessages(prev => ({ ...prev, [dimension]: `✗ Error: ${errorMsg}` }));
     } finally {
-      setSubmitting((prev: any) => ({ ...prev, [dimension]: false }));
+      setSubmitting(prev => ({ ...prev, [dimension]: false }));
     }
   };
 
+  if (fetchError) return (
+    <div className="min-h-screen bg-gray-50">
+      <TopRankerNavbar />
+      <div className="flex items-center justify-center mt-20">
+        <div className="text-center">
+          <div className="text-red-600 text-lg font-semibold mb-2">Failed to load problem</div>
+          <div className="text-gray-500 text-sm mb-4">{fetchError}</div>
+          <button onClick={() => router.back()} className="text-blue-600 underline text-sm">Go back</button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (!problem) return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-xl">Loading problem...</div>
+    <div className="min-h-screen bg-gray-50">
+      <TopRankerNavbar />
+      <div className="flex items-center justify-center mt-20 gap-3">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+        <div className="text-gray-600">Loading problem...</div>
+      </div>
     </div>
   )
 
@@ -213,17 +211,22 @@ export default function ProblemDetailPage() {
                   <span className="font-bold">Type:</span> {problem.type}
                 </div>
                 <div>
-                  <span className="font-bold">Submission Date:</span> {problem.submissionDate || new Date(problem.submissionDate).toLocaleDateString()}
+                  <span className="font-bold">Submission Date:</span>{' '}
+                  {problem.submissionDate
+                    ? (isNaN(Date.parse(problem.submissionDate))
+                        ? problem.submissionDate
+                        : new Date(problem.submissionDate).toLocaleDateString())
+                    : 'N/A'}
                 </div>
                 <div>
-                  <span className="font-bold">Total Submissions:</span> {problem.totalSubmissions} ({problem.dimensions?.map((d: any) => d.submissions).join(' + ')})
+                  <span className="font-bold">Total Submissions:</span> {problem.totalSubmissions} ({problem.dimensions?.map((d: Dimension) => d.submissions).join(' + ')})
                 </div>
               </div>
             </div>
 
             {/* Problem Description */}
             <div className="bg-white border-2 border-black rounded-lg p-6 mb-6">
-              <h3 className="text-xl font-bold mb-4 text-black">Optimization 1</h3>
+              <h3 className="text-xl font-bold mb-4 text-black">{problem.name}</h3>
               <p className="text-gray-700 leading-relaxed mb-6">
                 {problem.description}
               </p>
@@ -245,19 +248,16 @@ export default function ProblemDetailPage() {
               {/* Download Links */}
               <div className="mt-6">
                 <p className="font-bold mb-3 text-black">Download Fitness Function Code:</p>
-                <div className="flex flex-wrap gap-2">
-                  {problem.fitnessFunction?.codeFiles && (
-                    <>
-                      <a href="#" className="text-blue-600 hover:text-blue-800 underline">Python</a>
-                      <span className="text-black">,</span>
-                      <a href="#" className="text-blue-600 hover:text-blue-800 underline">Java</a>
-                      <span className="text-black">,</span>
-                      <a href="#" className="text-blue-600 hover:text-blue-800 underline">C++</a>
-                      <span className="text-black">,</span>
-                      <a href="#" className="text-blue-600 hover:text-blue-800 underline">C</a>
-                    </>
-                  )}
-                </div>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/fitness-code`}
+                  download
+                  className="inline-flex items-center gap-2 bg-gray-200 hover:bg-gray-300 border border-gray-400 text-black px-4 py-2 rounded font-medium transition text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Python
+                </a>
               </div>
             </div>
 
@@ -276,20 +276,20 @@ export default function ProblemDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {problem.dimensions?.map((dim: any, index: number) => (
+                  {problem.dimensions?.map((dim: Dimension, index: number) => (
                     <tr key={dim.dimension} className={`border-b-2 border-black ${index % 2 === 0 ? 'bg-yellow-50' : 'bg-blue-50'}`}>
                       {index === 0 && (
                         <>
-                          <td rowSpan={problem.dimensions.length} className="px-4 py-6 font-bold text-center border-r-2 border-black align-top">
+                          <td rowSpan={problem.dimensions?.length ?? 1} className="px-4 py-6 font-bold text-center border-r-2 border-black align-top">
                             {problem.problemId}
                           </td>
-                          <td rowSpan={problem.dimensions.length} className="px-4 py-6 border-r-2 border-black align-top">
+                          <td rowSpan={problem.dimensions?.length ?? 1} className="px-4 py-6 border-r-2 border-black align-top">
                             <div className="font-bold text-sm">{problem.name}</div>
                           </td>
-                          <td rowSpan={problem.dimensions.length} className="px-4 py-6 text-center text-2xl border-r-2 border-black align-top">
+                          <td rowSpan={problem.dimensions?.length ?? 1} className="px-4 py-6 text-center text-2xl border-r-2 border-black align-top">
                             {problem.cc}
                           </td>
-                          <td rowSpan={problem.dimensions.length} className="px-4 py-6 text-sm border-r-2 border-black align-top">
+                          <td rowSpan={problem.dimensions?.length ?? 1} className="px-4 py-6 text-sm border-r-2 border-black align-top">
                             {problem.owner}
                           </td>
                         </>
@@ -315,7 +315,7 @@ export default function ProblemDetailPage() {
                             </button>
                           </div>
                           {messages[dim.dimension] && (
-                            <div className={`text-xs ${messages[dim.dimension].includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+                            <div className={`text-xs ${messages[dim.dimension].startsWith('✓') ? 'text-green-600' : messages[dim.dimension] === 'Submitting...' ? 'text-blue-600' : 'text-red-600'}`}>
                               {messages[dim.dimension]}
                             </div>
                           )}
@@ -323,8 +323,13 @@ export default function ProblemDetailPage() {
                       </td>
                       <td className="px-4 py-4 text-center border-r-2 border-black">
                         <div className="text-sm font-bold">
-                          {userRankings[String(problemId)]?.dimension_ranks?.[dim.dimension] ? (
-                            `#${userRankings[String(problemId)].dimension_ranks[dim.dimension]}${userRankings[String(problemId)]?.dimension_totals?.[dim.dimension] ? `/${userRankings[String(problemId)].dimension_totals[dim.dimension]}` : ''}`
+                          {userRankings[String(problemId)]?.ranks?.[String(dim.dimension)] ? (
+                            <span className="text-blue-600">
+                              #{userRankings[String(problemId)].ranks[String(dim.dimension)]}
+                              {userRankings[String(problemId)]?.total_participants?.[String(dim.dimension)]
+                                ? `/${userRankings[String(problemId)].total_participants[String(dim.dimension)]}`
+                                : ''}
+                            </span>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
@@ -334,13 +339,16 @@ export default function ProblemDetailPage() {
                         </Link>
                       </td>
                       {index === 0 && (
-                        <td rowSpan={problem.dimensions.length} className="px-4 py-6 text-center align-top">
+                        <td rowSpan={problem.dimensions?.length ?? 1} className="px-4 py-6 text-center align-top">
                           <div className="text-sm font-bold mb-2">
-                            {userRankings[String(problemId)]?.overall_rank ? (
-                              `#${userRankings[String(problemId)].overall_rank}${userRankings[String(problemId)]?.total_participants ? `/${userRankings[String(problemId)].total_participants}` : ''}`
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
+                            {(() => {
+                              const pr = userRankings[String(problemId)];
+                              if (!pr?.ranks) return <span className="text-gray-400">-</span>;
+                              const ranks = Object.values(pr.ranks) as number[];
+                              if (!ranks.length) return <span className="text-gray-400">-</span>;
+                              const best = Math.min(...ranks);
+                              return <span className="text-blue-600">#{best}</span>;
+                            })()}
                           </div>
                           <Link href={`/problems/${problemId}/leaderboard`} className="text-blue-600 hover:underline text-xs">
                             View all rankers of the Problem
@@ -389,14 +397,24 @@ export default function ProblemDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {problem.dimensions?.map((dim: any) => (
-                      <tr key={dim.dimension} className="border-b border-gray-200">
-                        <td className="px-4 py-3 font-medium">For D={dim.dimension}</td>
-                        <td className="px-4 py-3 text-center text-gray-400">-</td>
-                        <td className="px-4 py-3 text-center text-gray-400">-</td>
-                        <td className="px-4 py-3 text-center text-gray-400">-</td>
-                      </tr>
-                    ))}
+                    {problem.dimensions?.map((dim: Dimension) => {
+                      const topThree = leaderboardByDim[dim.dimension] || [];
+                      return (
+                        <tr key={dim.dimension} className="border-b border-gray-200">
+                          <td className="px-4 py-3 font-medium">For D={dim.dimension}</td>
+                          {[0, 1, 2].map(pos => (
+                            <td key={pos} className="px-4 py-3 text-center text-sm">
+                              {topThree[pos] ? (
+                                <div>
+                                  <div className="font-medium text-black">{topThree[pos].name}</div>
+                                  <div className="text-gray-500 text-xs">{topThree[pos].country || ''}</div>
+                                </div>
+                              ) : <span className="text-gray-400">-</span>}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

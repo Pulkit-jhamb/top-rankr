@@ -6,13 +6,18 @@ import axios from 'axios'
 export default function StatisticsPage() {
   const [statistics, setStatistics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`)
       .then(res => {
-        setStatistics(res.data.data)
+        if (res.data.success) setStatistics(res.data.data);
+        else setError('Failed to load statistics.');
       })
-      .catch(err => console.error('Failed to fetch statistics:', err))
+      .catch(err => {
+        console.error('Failed to fetch statistics:', err);
+        setError('Failed to load statistics. Please try again.');
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -31,13 +36,22 @@ export default function StatisticsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-white border-2 border-gray-300 rounded-lg shadow-sm p-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">{error}</div>
+        )}
+
+        <div className="bg-white border-2 border-gray-300 rounded-lg shadow-sm p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6 text-black">Platform Statistics</h2>
           {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading statistics...</div>
-          ) : !statistics ? (
-            <div className="text-center py-8 text-gray-500">Failed to load statistics</div>
-          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1,2,3,4,5,6,7].map(i => (
+                <div key={i} className="p-6 bg-gray-50 rounded-lg border border-gray-200 animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2 w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : !statistics ? null : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="text-3xl font-bold text-blue-600 mb-2">{statistics.totalSubmissions?.toLocaleString() || 0}</div>
@@ -63,9 +77,59 @@ export default function StatisticsPage() {
                 <div className="text-3xl font-bold text-indigo-600 mb-2">{statistics.academicUsers?.toLocaleString() || 0}</div>
                 <div className="text-gray-700">Academic Users</div>
               </div>
+              <div className="p-6 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="text-3xl font-bold text-orange-600 mb-2">{statistics.activeUsers?.toLocaleString() || 0}</div>
+                <div className="text-gray-700">Active Users</div>
+              </div>
             </div>
           )}
         </div>
+
+        {!loading && statistics && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Rankers */}
+            <div className="bg-white border-2 border-gray-300 rounded-lg shadow-sm overflow-hidden">
+              <div className="bg-yellow-50 border-b border-gray-300 px-6 py-4">
+                <h2 className="text-lg font-bold text-black">⭐ Top Rankers</h2>
+              </div>
+              <ul className="divide-y divide-gray-100">
+                {(statistics.topRankers || []).slice(0, 5).map((r: any, i: number) => (
+                  <li key={i} className="px-6 py-3 flex justify-between items-center">
+                    <div>
+                      <span className="font-semibold text-black mr-2">#{i + 1}</span>
+                      <span className="text-black">{r.name}</span>
+                    </div>
+                    <div className="text-sm text-gray-500">{r.country || 'N/A'}</div>
+                  </li>
+                ))}
+                {(!statistics.topRankers || statistics.topRankers.length === 0) && (
+                  <li className="px-6 py-4 text-gray-500 text-sm">No rankings yet.</li>
+                )}
+              </ul>
+            </div>
+
+            {/* Top Contributors */}
+            <div className="bg-white border-2 border-gray-300 rounded-lg shadow-sm overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-300 px-6 py-4">
+                <h2 className="text-lg font-bold text-black">Top Contributors</h2>
+              </div>
+              <ul className="divide-y divide-gray-100">
+                {(statistics.topContributors || []).slice(0, 5).map((c: any, i: number) => (
+                  <li key={i} className="px-6 py-3 flex justify-between items-center">
+                    <div>
+                      <span className="font-semibold text-black mr-2">#{i + 1}</span>
+                      <span className="text-black">{c.name}</span>
+                    </div>
+                    <div className="text-sm text-gray-500">{c.problemCount} problems | {c.institution || 'N/A'}</div>
+                  </li>
+                ))}
+                {(!statistics.topContributors || statistics.topContributors.length === 0) && (
+                  <li className="px-6 py-4 text-gray-500 text-sm">No contributors yet.</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

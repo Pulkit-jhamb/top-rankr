@@ -9,25 +9,29 @@ export default function Page() {
   const [statistics, setStatistics] = useState<any>(null);
   const [contests, setContests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // Fetch statistics
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`)
-      .then(res => {
-        setStatistics(res.data.data);
+    Promise.all([
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`),
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
+        params: { status: 'ongoing', limit: 3 }
       })
-      .catch(err => console.error('Failed to fetch statistics:', err));
-
-    // Fetch ongoing contests
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
-      params: { status: 'active', limit: 3 }
-    })
-      .then(res => {
-        setContests(res.data.data || []);
+    ])
+      .then(([statsRes, contestsRes]) => {
+        if (statsRes.data.success) setStatistics(statsRes.data.data);
+        if (contestsRes.data.success) setContests(contestsRes.data.data || []);
       })
-      .catch(err => console.error('Failed to fetch contests:', err))
+      .catch(err => {
+        console.error('Failed to fetch home data:', err);
+        setError('Failed to load data. Please refresh the page.');
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const SkeletonLine = ({ w }: { w: string }) => (
+    <div className={`animate-pulse h-4 bg-gray-200 rounded ${w}`}></div>
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -35,11 +39,18 @@ export default function Page() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+            {error}
+          </div>
+        )}
         {/* Ongoing Contests */}
         <div className="bg-white border border-black rounded p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6 text-black">Ongoing Contests</h2>
           {loading ? (
-            <div className="text-center text-gray-500">Loading contests...</div>
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="space-y-2"><SkeletonLine w="w-3/4" /><SkeletonLine w="w-1/2" /></div>)}
+            </div>
           ) : contests.length === 0 ? (
             <div className="text-center text-gray-500">No ongoing contests</div>
           ) : (
@@ -64,8 +75,10 @@ export default function Page() {
         {/* Statistics */}
         <div className="bg-white border border-black rounded p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6 text-black">Statistics</h2>
-          {loading || !statistics ? (
-            <div className="text-center text-gray-500">Loading statistics...</div>
+          {loading ? (
+            <div className="space-y-3">{[1,2,3].map(i => <SkeletonLine key={i} w="w-full" />)}</div>
+          ) : !statistics ? (
+            <p className="text-gray-500 text-sm">Statistics unavailable.</p>
           ) : (
             <ul className="space-y-2 text-black">
               <li>
@@ -94,8 +107,10 @@ export default function Page() {
               </h2>
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-300">
-              {loading || !statistics?.topRankers ? (
-                <div className="col-span-3 p-4 text-center text-gray-500">Loading...</div>
+              {loading ? (
+                <div className="col-span-3 p-4"><div className="animate-pulse h-8 bg-gray-200 rounded"></div></div>
+              ) : !statistics?.topRankers ? (
+                <div className="col-span-3 p-4 text-center text-gray-500">No rankers yet</div>
               ) : statistics.topRankers.slice(0, 3).length === 0 ? (
                 <div className="col-span-3 p-4 text-center text-gray-500">No rankers yet</div>
               ) : (
@@ -115,14 +130,16 @@ export default function Page() {
               <h2 className="text-lg font-bold text-black">Top Contributors</h2>
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-300">
-              {loading || !statistics?.topContributors ? (
-                <div className="col-span-3 p-4 text-center text-gray-500">Loading...</div>
+              {loading ? (
+                <div className="col-span-3 p-4"><div className="animate-pulse h-8 bg-gray-200 rounded"></div></div>
+              ) : !statistics?.topContributors ? (
+                <div className="col-span-3 p-4 text-center text-gray-500">No contributors yet</div>
               ) : statistics.topContributors.slice(0, 3).length === 0 ? (
                 <div className="col-span-3 p-4 text-center text-gray-500">No contributors yet</div>
               ) : (
                 statistics.topContributors.slice(0, 3).map((contributor: any, idx: number) => (
                   <div key={idx} className="p-4">
-                    <div className="text-black font-medium mb-1">{contributor._id},</div>
+                    <div className="text-black font-medium mb-1">{contributor.name},</div>
                     <div className="text-black">{contributor.institution || 'N/A'}</div>
                   </div>
                 ))

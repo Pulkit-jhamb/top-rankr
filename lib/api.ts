@@ -21,4 +21,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle token expiry and auth errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (typeof window !== 'undefined' && error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('email');
+      localStorage.removeItem('role');
+      localStorage.removeItem('userId');
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;

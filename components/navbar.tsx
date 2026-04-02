@@ -1,6 +1,6 @@
 'use client'
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
@@ -11,29 +11,38 @@ type NavItem = {
   highlight?: boolean;
 };
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { label: "Dashboard", href: "/home"},
   { label: "About", href: "/about" },
-  { label: "Problems", href: "/problems" },
   { label: "Contests", href: "/contests" },
+  { label: "Problems", href: "/problems" },
   { label: "Leaderboard", href: "/leadership" },
   { label: "Contribute", href: "/contribute"},
   { label: "Statistics", href: "/statistics" },
 ];
 
 export default function TopRankerNavbar() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authState, setAuthState] = useState({ isAuthenticated: false, userRole: 'student' });
+  const { isAuthenticated, userRole } = authState;
+  const navItems = userRole === 'admin'
+    ? [...baseNavItems, { label: 'Admin', href: '/admin', highlight: true }]
+    : baseNavItems;
   const [userName, setUserName] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userId = localStorage.getItem('userId');
-    setIsAuthenticated(!!token);
-    
+    const role = localStorage.getItem('role') || 'student';
+
+    if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAuthState({ isAuthenticated: true, userRole: role });
+    }
+
     if (token && userId) {
-      // Fetch user data from backend
       axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics/user/${userId}`)
         .then(res => {
           const user = res.data.data.user;
@@ -41,11 +50,20 @@ export default function TopRankerNavbar() {
         })
         .catch(err => {
           console.error('Failed to fetch user data:', err);
-          // Fallback to localStorage
           const name = localStorage.getItem('userName') || localStorage.getItem('email') || 'User';
           setUserName(name);
         });
     }
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -53,9 +71,12 @@ export default function TopRankerNavbar() {
     localStorage.removeItem('userName');
     localStorage.removeItem('email');
     localStorage.removeItem('role');
-    setIsAuthenticated(false);
+    localStorage.removeItem('userId');
+    setAuthState({ isAuthenticated: false, userRole: 'student' });
+    setUserName('');
     router.push('/auth');
   };
+
 
   const getInitials = (name: string) => {
     if (!name) return 'U';
@@ -79,7 +100,7 @@ export default function TopRankerNavbar() {
           </div>
         </div>
 
-        <nav className="hidden gap-3 md:flex items-center">
+        <nav className="hidden gap-2 md:flex items-center flex-wrap">
           {navItems.map((item) => (
             <Link
               key={item.label}
@@ -100,10 +121,10 @@ export default function TopRankerNavbar() {
           {/* Profile or Sign In */}
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="flex items-center gap-2 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 w-10 h-10 text-white font-bold shadow-lg hover:shadow-xl transition-shadow"
+                  className="flex items-center gap-2 rounded-full bg-linear-to-br from-blue-500 to-purple-600 w-10 h-10 text-white font-bold shadow-lg hover:shadow-xl transition-shadow"
                   title={userName}
                 >
                   <span className="w-full text-center text-sm">{getInitials(userName)}</span>
@@ -113,7 +134,7 @@ export default function TopRankerNavbar() {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
                       <p className="text-sm font-semibold text-gray-800">{userName}</p>
-                      <p className="text-xs text-gray-500">Student</p>
+                      <p className="text-xs text-gray-500 capitalize">{userRole}</p>
                     </div>
                     <Link
                       href="/user_profile"

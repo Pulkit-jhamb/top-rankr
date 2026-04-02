@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
+import Link from 'next/link'
 import TopRankerNavbar from '@/components/navbar'
 
 interface Contest {
@@ -12,9 +13,10 @@ interface Contest {
   type: string
   startDate?: string
   endDate?: string
-  prize?: string
+  prize?: string | number
   status?: string
   problems?: string[]
+  participantCount?: number
 }
 
 export default function ContestsPage() {
@@ -22,17 +24,15 @@ export default function ContestsPage() {
   const [filteredContests, setFilteredContests] = useState<Contest[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalContests, setTotalContests] = useState(0)
   const [filter, setFilter] = useState('all') // all, open, class, conference
 
-  useEffect(() => {
-    fetchContests();
-  }, [currentPage, filter]);
-
-  const fetchContests = async () => {
+  const fetchContests = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
         params: {
@@ -44,18 +44,16 @@ export default function ContestsPage() {
       const contestsData = response.data.data || [];
       setContests(contestsData);
       setFilteredContests(contestsData);
-      
-      // Set pagination info from response
       if (response.data.pagination) {
         setTotalPages(response.data.pagination.pages || 1);
         setTotalContests(response.data.pagination.total || 0);
       } else {
-        // Fallback if pagination not provided
         setTotalPages(1);
         setTotalContests(response.data.data?.length || 0);
       }
     } catch (err) {
       console.error('Failed to fetch contests:', err);
+      setError('Failed to load contests. Please try again.');
       setContests([]);
       setFilteredContests([]);
       setTotalPages(1);
@@ -63,7 +61,11 @@ export default function ContestsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [currentPage, filter]);
+
+  useEffect(() => {
+    fetchContests();
+  }, [fetchContests]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -130,7 +132,13 @@ export default function ContestsPage() {
     return pages;
   };
 
-  // Removed loading screen - data loads inline
+  const getStatusBadge = (status?: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'active' || s === 'ongoing') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>;
+    if (s === 'upcoming') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Upcoming</span>;
+    if (s === 'ended' || s === 'closed') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Ended</span>;
+    return status ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">{status}</span> : null;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -147,6 +155,11 @@ export default function ContestsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+            {error}
+          </div>
+        )}
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -301,14 +314,15 @@ export default function ContestsPage() {
                     </td>
                     <td className="px-4 py-3 border-r border-gray-300">
                       <div>
-                        <div className="font-bold text-black hover:underline cursor-pointer">
+                        <div className="font-bold text-black">
                           {contest.name}
                         </div>
                         {contest.confHomePage && (
-                          <div className="text-sm text-black hover:underline cursor-pointer">
+                          <a href={contest.confHomePage} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
                             {contest.confHomePage}
-                          </div>
+                          </a>
                         )}
+                        <div className="mt-1">{getStatusBadge(contest.status)}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3 border-r border-gray-300">{contest.organizer}</td>
@@ -328,15 +342,28 @@ export default function ContestsPage() {
                       {contest.endDate ? new Date(contest.endDate).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-4 py-3 border-r border-gray-300 font-medium text-black">
-                      {contest.prize || 'TBA'}
+                      <div>{contest.prize ? `$${contest.prize}` : 'TBA'}</div>
+                      {contest.participantCount !== undefined && (
+                        <div className="text-xs text-gray-500">{contest.participantCount} joined</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <a
-                        href={`/contests/${contest.eventId}`}
-                        className="inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded transition"
-                      >
-                        Participate
-                      </a>
+                      {(() => {
+                        const s = contest.status?.toLowerCase()
+                        const isOpen = s === 'active' || s === 'ongoing'
+                        return (
+                          <Link
+                            href={`/contests/${contest.eventId}`}
+                            className={`inline-block px-4 py-1 rounded transition text-white text-sm font-medium ${
+                              isOpen
+                                ? 'bg-gray-800 hover:bg-black'
+                                : 'bg-gray-400 hover:bg-gray-500'
+                            }`}
+                          >
+                            {isOpen ? 'Participate' : 'View'}
+                          </Link>
+                        )
+                      })()}
                     </td>
                   </tr>
                   ))

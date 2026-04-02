@@ -1,56 +1,172 @@
+'use client'
 import Link from "next/link";
 import { Facebook, Twitter, Linkedin } from "lucide-react";
 import TopRankerNavbar from "@/components/navbar";
+import { useState, useEffect } from "react";
+import axios from "axios";
+
+interface Contest {
+  _id: string;
+  eventId: string;
+  name: string;
+  organizer?: string;
+  startDate?: string;
+  prize?: number;
+  status?: string;
+  problems?: string[];
+  participantCount?: number;
+}
+
+interface Ranker {
+  _id: string;
+  name: string;
+  country: string;
+  rating: number;
+  institution?: string;
+}
+
+interface Contributor {
+  name: string;
+  problemCount: number;
+  institution: string;
+}
+
+interface Stats {
+  totalSubmissions: number;
+  totalUsers: number;
+  totalProblems: number;
+  totalCountries: number;
+  indiaUsers: number;
+  academicUsers: number;
+  activeUsers: number;
+}
 
 export default function Page() {
+  const [contests, setContests] = useState<Contest[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [topRankers, setTopRankers] = useState<Ranker[]>([]);
+  const [topContributors, setTopContributors] = useState<Contributor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [statsRes, contestsRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
+            params: { status: 'ongoing', limit: 5 }
+          })
+        ]);
+
+        if (statsRes.data.success) {
+          const d = statsRes.data.data;
+          setStats({
+            totalSubmissions: d.totalSubmissions,
+            totalUsers: d.totalUsers,
+            totalProblems: d.totalProblems,
+            totalCountries: d.totalCountries,
+            indiaUsers: d.indiaUsers,
+            academicUsers: d.academicUsers,
+            activeUsers: d.activeUsers,
+          });
+          setTopRankers((d.topRankers || []).slice(0, 3));
+          setTopContributors((d.topContributors || []).slice(0, 3));
+        }
+
+        if (contestsRes.data.success) {
+          setContests(contestsRes.data.data || []);
+        }
+      } catch (err) {
+        setError('Failed to load platform data. Please try again later.');
+        console.error('Failed to fetch homepage data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const SkeletonLine = ({ w }: { w: string }) => (
+    <div className={`animate-pulse h-4 bg-gray-200 rounded ${w}`}></div>
+  );
+
   return (
     <div className="min-h-screen bg-white">
       <TopRankerNavbar />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Ongoing Contests */}
         <div className="bg-white border border-black rounded p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6 text-black">Ongoing Contests</h2>
-          <ul className="space-y-4">
-            <li>
-              <div className="font-bold text-black mb-1">Contest 1 – by SocProcs 2018</div>
-              <div className="text-black text-sm">
-                10 Problems | Price $ 500 | Start: 1 Nov 2017
-              </div>
-            </li>
-            <li>
-              <div className="font-bold text-black mb-1">Contest 2 – by ICPC 2018</div>
-              <div className="text-black text-sm">
-                7 Problems | Price $ 500 | Start: 1 Nov 2017
-              </div>
-            </li>
-            <li>
-              <div className="font-bold text-black mb-1">Contest 3 – by NNCC 2018</div>
-              <div className="text-black text-sm">
-                8 Problems | Price $ 800 | Start: 1 Nov 2017
-              </div>
-            </li>
-          </ul>
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="space-y-2">
+                  <SkeletonLine w="w-3/4" />
+                  <SkeletonLine w="w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : contests.length > 0 ? (
+            <ul className="space-y-4">
+              {contests.map((contest, index) => (
+                <li key={contest._id || index}>
+                  <div className="font-bold text-black mb-1">{contest.name}</div>
+                  <div className="text-black text-sm">
+                    {contest.problems?.length ?? 0} Problems
+                    {contest.prize ? ` | Prize $${contest.prize}` : ''}
+                    {contest.startDate
+                      ? ` | Start: ${new Date(contest.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      : ''}
+                    {contest.participantCount !== undefined
+                      ? ` | ${contest.participantCount} Participants`
+                      : ''}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500 text-sm">No ongoing contests at the moment.</p>
+          )}
         </div>
 
         {/* Statistics */}
         <div className="bg-white border border-black rounded p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6 text-black">Statistics</h2>
-          <ul className="space-y-2 text-black">
-            <li>
-              <span className="font-bold">203922</span> submissions | <span className="font-bold">54815</span> registered users | <span className="font-bold">6397</span> problems
-            </li>
-            <li>
-              <span className="font-bold">120</span> Countries | <span className="font-bold">20000</span> users from India
-            </li>
-            <li>
-              <span className="font-bold">50000</span> users from Academics | <span className="font-bold">4815</span> users from Industry
-            </li>
-            <li>
-              <span className="font-bold">40000</span> UG Students | <span className="font-bold">10000</span> PG/PhD Students | <span className="font-bold">4815</span> Others
-            </li>
-          </ul>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <SkeletonLine key={i} w="w-full" />)}
+            </div>
+          ) : stats ? (
+            <ul className="space-y-2 text-black">
+              <li>
+                <span className="font-bold">{stats.totalSubmissions.toLocaleString()}</span> submissions |{' '}
+                <span className="font-bold">{stats.totalUsers.toLocaleString()}</span> registered users |{' '}
+                <span className="font-bold">{stats.totalProblems.toLocaleString()}</span> problems
+              </li>
+              <li>
+                <span className="font-bold">{stats.totalCountries}</span> Countries |{' '}
+                <span className="font-bold">{stats.indiaUsers.toLocaleString()}</span> users from India
+              </li>
+              <li>
+                <span className="font-bold">{stats.academicUsers.toLocaleString()}</span> users from Academics |{' '}
+                <span className="font-bold">{stats.activeUsers.toLocaleString()}</span> active users
+              </li>
+            </ul>
+          ) : (
+            <p className="text-gray-500 text-sm">Statistics unavailable.</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -61,41 +177,55 @@ export default function Page() {
                 <span className="mr-2">⭐</span>Top Rankers
               </h2>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-gray-300">
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">Liquid Water,</div>
-                <div className="text-black">India</div>
+            {loading ? (
+              <div className="p-4 grid grid-cols-3 gap-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <SkeletonLine w="w-full" />
+                    <SkeletonLine w="w-2/3" />
+                  </div>
+                ))}
               </div>
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">Lim Choo,</div>
-                <div className="text-black">China</div>
+            ) : topRankers.length > 0 ? (
+              <div className="grid grid-cols-3 divide-x divide-gray-300">
+                {topRankers.map((ranker) => (
+                  <div key={ranker._id} className="p-4">
+                    <div className="text-black font-medium mb-1">{ranker.name},</div>
+                    <div className="text-black">{ranker.country || 'N/A'}</div>
+                  </div>
+                ))}
               </div>
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">Boris Baker,</div>
-                <div className="text-black">Poland</div>
-              </div>
-            </div>
+            ) : (
+              <div className="p-4 text-gray-500 text-sm">No rankings available yet.</div>
+            )}
           </div>
 
-          {/* Top Contributer */}
+          {/* Top Contributors */}
           <div className="bg-white border border-black rounded overflow-hidden">
             <div className="bg-gray-50 border-b border-black px-6 py-4">
-              <h2 className="text-lg font-bold text-black">Top Contributer</h2>
+              <h2 className="text-lg font-bold text-black">Top Contributors</h2>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-gray-300">
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">JC Bansal,</div>
-                <div className="text-black">SAU, India</div>
+            {loading ? (
+              <div className="p-4 grid grid-cols-3 gap-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="space-y-2">
+                    <SkeletonLine w="w-full" />
+                    <SkeletonLine w="w-2/3" />
+                  </div>
+                ))}
               </div>
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">Manoj Tiwari,</div>
-                <div className="text-black">IIT Kgp, India</div>
+            ) : topContributors.length > 0 ? (
+              <div className="grid grid-cols-3 divide-x divide-gray-300">
+                {topContributors.map((contributor, i) => (
+                  <div key={i} className="p-4">
+                    <div className="text-black font-medium mb-1">{contributor.name},</div>
+                    <div className="text-black">{contributor.institution || 'N/A'}</div>
+                  </div>
+                ))}
               </div>
-              <div className="p-4">
-                <div className="text-black font-medium mb-1">Manoj Thakur,</div>
-                <div className="text-black">IIT Mandi, India</div>
-              </div>
-            </div>
+            ) : (
+              <div className="p-4 text-gray-500 text-sm">No contributors yet.</div>
+            )}
           </div>
         </div>
       </main>

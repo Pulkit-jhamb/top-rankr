@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import TopRankerNavbar from '@/components/navbar'
 import axios from 'axios'
 
-export default function UserProfilePage() {
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
@@ -33,14 +35,25 @@ export default function UserProfilePage() {
     setLoading(true)
 
     try {
+      if (!EMAIL_RE.test(formData.email)) {
+        setError('Please enter a valid email address')
+        setLoading(false)
+        return
+      }
+
       if (!isLogin) {
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match')
           setLoading(false)
           return
         }
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters')
+        if (formData.password.length < 8) {
+          setError('Password must be at least 8 characters')
+          setLoading(false)
+          return
+        }
+        if (!/\d/.test(formData.password)) {
+          setError('Password must contain at least one digit')
           setLoading(false)
           return
         }
@@ -70,8 +83,9 @@ export default function UserProfilePage() {
         
         router.push('/home')
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred. Please try again.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || 'An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }

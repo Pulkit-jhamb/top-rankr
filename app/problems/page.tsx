@@ -1,371 +1,266 @@
-"use client";
+'use client'
 
-import TopRankerNavbar from "@/components/navbar";
-import Link from "next/link";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
+import TopRankerNavbar from '@/components/navbar'
+import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+
+interface Dimension {
+  dimension: number
+  submissions: number
+}
+
+interface Problem {
+  problemId: string
+  name: string
+  level: string
+  ownerName?: string
+  owner?: string
+  totalSubmissions?: number
+  dimensions?: Dimension[]
+}
+
+interface ContestGroup {
+  contestId: string
+  contestName: string
+  status: string
+  problems: Problem[]
+}
+
+interface UserRankings {
+  [problemId: string]: {
+    ranks: Record<string, number>
+    total_participants: Record<string, number>
+  }
+}
+
+function levelBadge(level: string) {
+  const map: Record<string, string> = {
+    Easy:   'bg-green-100 text-green-700 border-green-300',
+    Medium: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    Hard:   'bg-red-100 text-red-700 border-red-300',
+  }
+  return map[level] || 'bg-gray-100 text-gray-700 border-gray-300'
+}
+
+function ProblemTable({ problems, contestId, userRankings }: {
+  problems: Problem[]
+  contestId: string
+  userRankings: UserRankings
+}) {
+  return (
+    <div className="bg-white border border-black overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-200 border-b border-black">
+            <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Problem #</th>
+            <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Problem Name</th>
+            <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Level</th>
+            <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Owner</th>
+            <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Dimensions</th>
+            <th className="px-4 py-3 text-center font-bold text-black border-r border-black">My Ranking</th>
+            <th className="px-4 py-3 text-center font-bold text-black">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {problems.map((problem, index) => (
+            <tr key={problem.problemId} className={`border-b border-black ${index % 2 === 0 ? 'bg-[#f5f5dc]' : 'bg-[#e6f3ff]'}`}>
+              <td className="px-4 py-4 font-bold text-black border-r border-black align-top">{problem.problemId}</td>
+              <td className="px-4 py-4 border-r border-black align-top">
+                <div className="font-bold text-black">{problem.name}</div>
+                <Link href={`/problems/${problem.problemId}`} className="text-blue-600 text-xs hover:underline">
+                  Click here for more info...
+                </Link>
+              </td>
+              <td className="px-4 py-4 border-r border-black align-top">
+                <span className={`text-xs font-semibold px-2 py-1 rounded border ${levelBadge(problem.level)}`}>
+                  {problem.level}
+                </span>
+              </td>
+              <td className="px-4 py-4 text-black border-r border-black align-top text-xs">{problem.ownerName || problem.owner || '-'}</td>
+              <td className="px-4 py-4 border-r border-black align-top">
+                {problem.dimensions?.map((dim, i) => (
+                  <div key={i} className="text-xs text-black py-1">D={dim.dimension} <span className="text-gray-500">({dim.submissions} subs)</span></div>
+                ))}
+              </td>
+              <td className="px-4 py-4 border-r border-black align-top text-center">
+                {problem.dimensions?.map((dim, i) => {
+                  const rank  = userRankings[problem.problemId]?.ranks?.[String(dim.dimension)]
+                  const total = userRankings[problem.problemId]?.total_participants?.[String(dim.dimension)]
+                  return (
+                    <div key={i} className="text-xs py-1 font-semibold">
+                      {rank ? <span className="text-blue-600">#{rank}{total ? `/${total}` : ''}</span> : <span className="text-gray-400">-</span>}
+                    </div>
+                  )
+                })}
+              </td>
+              <td className="px-4 py-4 align-top text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-xs text-gray-500">{problem.totalSubmissions ?? 0} total subs</div>
+                  <Link href={`/problems/${problem.problemId}/leaderboard`} className="text-blue-600 text-xs hover:underline">View ranking</Link>
+                  <Link href={`/problems/${problem.problemId}`} className="bg-gray-800 hover:bg-black text-white px-3 py-1 rounded text-xs font-medium transition">Solve</Link>
+                  <Link href={`/contests/${contestId}`} className="text-gray-500 text-xs hover:underline">← Contest page</Link>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export default function Page() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalProblems, setTotalProblems] = useState(0);
-  const [difficulty, setDifficulty] = useState("All");
-  const [status, setStatus] = useState("All");
-  const [problems, setProblems] = useState<any[]>([]);
-  const [filteredProblems, setFilteredProblems] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRankings, setUserRankings] = useState<any>({});
-  const router = useRouter();
+  const [isLoggedIn] = useState(() => typeof window !== 'undefined' && !!localStorage.getItem('token'))
+  const [groups, setGroups] = useState<ContestGroup[]>([])
+  const [userRankings, setUserRankings] = useState<UserRankings>({})
+  const [loading, setLoading] = useState(() => typeof window !== 'undefined' && !!localStorage.getItem('token'))
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-    
-    fetchProblems();
-    
-    if (token) {
-      fetchUserRankings();
-    }
-  }, [currentPage, difficulty]);
+    const token = localStorage.getItem('token')
+    if (!token) return
 
-  const fetchUserRankings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems/user/rankings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      setUserRankings(response.data.data || {});
-    } catch (error) {
-      console.error('Failed to fetch user rankings:', error);
-    }
-  };
+    const headers = { Authorization: `Bearer ${token}` }
+    const userId  = localStorage.getItem('userId')
 
-  const fetchProblems = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/problems`, {
-        params: {
-          page: currentPage,
-          limit: 20,
-          difficulty: difficulty === 'All' ? undefined : difficulty
-        }
-      });
-      const problemsData = response.data.data || [];
-      setProblems(problemsData);
-      setFilteredProblems(problemsData);
-      
-      // Set pagination info from response
-      if (response.data.pagination) {
-        setTotalPages(response.data.pagination.pages || 1);
-        setTotalProblems(response.data.pagination.total || 0);
-      } else {
-        setTotalPages(1);
-        setTotalProblems(response.data.data?.length || 0);
-      }
-    } catch (error) {
-      console.error('Failed to fetch problems:', error);
-      setProblems([]);
-      setFilteredProblems([]);
-      setTotalPages(1);
-      setTotalProblems(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+    Promise.all([
+      axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests/my-problems`, { headers }),
+      userId
+        ? axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics/user/${userId}`)
+            .then(r => r.data.data?.user?.problem_rankings || {})
+            .catch(() => ({}))
+        : Promise.resolve({}),
+    ])
+      .then(([contestRes, rankings]) => {
+        setGroups(contestRes.data.data?.groups || [])
+        setUserRankings(rankings as UserRankings)
+      })
+      .catch(() => setGroups([]))
+      .finally(() => setLoading(false))
+  }, [])
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setFilteredProblems(problems);
-      return;
-    }
-
-    const lowercaseQuery = query.toLowerCase();
-    const filtered = problems.filter(problem => 
-      problem.name?.toLowerCase().includes(lowercaseQuery) ||
-      problem.problemId?.toString().includes(lowercaseQuery) ||
-      problem.owner?.toLowerCase().includes(lowercaseQuery) ||
-      problem.level?.toLowerCase().includes(lowercaseQuery)
-    );
-    setFilteredProblems(filtered);
-  };
-
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 11;
-    
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 6) {
-        for (let i = 1; i <= 9; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 5) {
-        pages.push(1);
-        pages.push('...');
-        for (let i = totalPages - 8; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push('...');
-        for (let i = currentPage - 3; i <= currentPage + 3; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      }
-    }
-    return pages;
-  };
-
-  const handleSolveProblem = (problemId: string) => {
-    if (!isAuthenticated) {
-      alert('Please login to solve problems!');
-      router.push('/auth');
-      return;
-    }
-    router.push(`/problems/${problemId}`);
-  };
+  const allProblems = groups.flatMap(g => g.problems)
+  const filtered = searchQuery.trim()
+    ? allProblems.filter(p =>
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.problemId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.level?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : null
 
   return (
     <div className="min-h-screen bg-gray-50">
       <TopRankerNavbar />
-
-      {/* Main Content */}
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
         {/* Header */}
         <div className="bg-black text-white px-6 py-3 mb-6 flex items-center gap-3">
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
           </svg>
-          <h1 className="text-2xl font-bold">Problems</h1>
+          <h1 className="text-2xl font-bold">My Contest Problems</h1>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search problems by name, ID, owner, or difficulty..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
-            />
-            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        {/* Not logged in */}
+        {!loading && !isLoggedIn && (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
+            <p className="text-gray-500 text-lg">Login to see your contest problems</p>
+            <Link href="/auth" className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded font-medium transition">
+              Sign In
+            </Link>
           </div>
-        </div>
+        )}
 
-        {/* Pagination and Filters */}
-        <div className="flex items-center justify-between mb-6">
-          {/* Pagination */}
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              &lt;&lt;
-            </button>
-            <button 
-              onClick={handlePrevious}
-              disabled={currentPage === 1}
-              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              Previous
-            </button>
-            
-            {getPageNumbers().map((page, index) => (
-              page === '...' ? (
-                <span key={`ellipsis-${index}`} className="px-2 text-gray-700">...</span>
-              ) : (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page as number)}
-                  className={`px-3 py-1 rounded font-medium ${
-                    currentPage === page 
-                      ? 'bg-blue-500 text-white' 
-                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              )
-            ))}
-            
-            <button 
-              onClick={handleNext}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              Next
-            </button>
-            <button 
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-              className={`px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              &gt;&gt;
-            </button>
-            
-            <span className="ml-2 text-sm text-gray-600">
-              Page {currentPage} of {totalPages} ({totalProblems} total)
-            </span>
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-24 gap-3 text-gray-500">
+            <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Loading your problems...
           </div>
+        )}
 
-          {/* Filters */}
-          <div className="flex items-center gap-6 text-black">
-            {/* Difficulty Filter */}
-            <div className="bg-white border border-gray-300 px-4 py-2 rounded">
-              <div className="flex items-center gap-4">
-                <span className="font-semibold text-gray-700 text-sm" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>Difficulty</span>
-                <div className="flex flex-col gap-1">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="difficulty" checked={difficulty === "All"} onChange={() => setDifficulty("All")} />
-                    <span>All</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="difficulty" checked={difficulty === "Easy"} onChange={() => setDifficulty("Easy")} />
-                    <span>Easy</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="difficulty" checked={difficulty === "Medium"} onChange={() => setDifficulty("Medium")} />
-                    <span>Medium</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="difficulty" checked={difficulty === "Hard"} onChange={() => setDifficulty("Hard")} />
-                    <span>Hard</span>
-                  </label>
-                </div>
-              </div>
+        {/* No contests joined */}
+        {!loading && isLoggedIn && groups.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p className="text-gray-600 text-lg font-semibold">No problems yet</p>
+            <p className="text-gray-400 text-sm">Join a contest first to unlock its problems</p>
+            <Link href="/contests" className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded font-medium transition">
+              Browse Contests
+            </Link>
+          </div>
+        )}
+
+        {/* Problems grouped by contest */}
+        {!loading && isLoggedIn && groups.length > 0 && (
+          <>
+            {/* Search */}
+            <div className="mb-6 relative">
+              <input
+                type="text"
+                placeholder="Search problems by name, ID, or difficulty..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-black bg-white"
+              />
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
 
-          </div>
-        </div>
-
-        {/* Problems Table */}
-        <div className="bg-white border border-black overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-200 border-b border-black">
-                <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Problem #</th>
-                <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Problem Name</th>
-                <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Level</th>
-                <th className="px-4 py-3 text-center font-bold text-black border-r border-black">CC</th>
-                <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Owner</th>
-                <th className="px-4 py-3 text-left font-bold text-black border-r border-black">Problem Dimension</th>
-                <th className="px-4 py-3 text-center font-bold text-black border-r border-black">Total Participations (Problem Dim Wise)</th>
-                {isAuthenticated && (
-                  <th className="px-4 py-3 text-center font-bold text-black border-r border-black">My Ranking</th>
-                )}
-                <th className="px-4 py-3 text-center font-bold text-black">Total Participations (Problem Wise)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={isAuthenticated ? 9 : 8} className="px-4 py-8 text-center text-gray-500">
-                    Loading problems...
-                  </td>
-                </tr>
-              ) : filteredProblems.length === 0 ? (
-                <tr>
-                  <td colSpan={isAuthenticated ? 9 : 8} className="px-4 py-8 text-center text-gray-500">
-                    {searchQuery ? `No problems found matching "${searchQuery}"` : 'No problems found'}
-                  </td>
-                </tr>
-              ) : (
-                filteredProblems.map((problem, index) => (
-                  <tr key={problem.problemId} className={`border-b border-black ${index % 2 === 0 ? "bg-[#f5f5dc]" : "bg-[#e6f3ff]"}`}>
-                    <td className="px-4 py-6 font-bold text-black border-r border-black align-top">{problem.problemId}</td>
-                    <td className="px-4 py-6 border-r border-black align-top">
-                      <div className="font-bold text-black">{problem.name}</div>
-                      <Link href={`/problems/${problem.problemId}`} className="text-blue-600 text-xs hover:underline">
-                        Click here for More info...
-                      </Link>
-                    </td>
-                    <td className="px-4 py-6 font-bold text-black border-r border-black align-top">{problem.level}</td>
-                    <td className="px-4 py-6 text-center border-r border-black align-top text-2xl">{problem.cc}</td>
-                    <td className="px-4 py-6 text-black border-r border-black align-top text-sm">
-                      {problem.owner}
-                    </td>
-                    <td className="px-4 py-6 border-r border-black align-top">
-                      {problem.dimensions?.map((dim: any, i: number) => (
-                        <div key={i} className={`px-2 py-2 text-sm text-black ${i < problem.dimensions.length - 1 ? "border-b border-gray-300" : ""}`}>
-                          D={dim.dimension}
-                        </div>
-                      ))}
-                    </td>
-                    <td className="px-4 py-6 border-r border-black align-top">
-                      {problem.dimensions?.map((dim: any, i: number) => (
-                        <div key={i} className={`px-2 py-2 text-center text-sm text-black ${i < problem.dimensions.length - 1 ? "border-b border-gray-300" : ""}`}>
-                          {dim.submissions}
-                        </div>
-                      ))}
-                    </td>
-                    {isAuthenticated && (
-                      <td className="px-4 py-6 border-r border-black align-top">
-                        {problem.dimensions?.map((dim: any, i: number) => {
-                          const problemRanking = userRankings[problem.problemId];
-                          const dimensionRank = problemRanking?.dimension_ranks?.[dim.dimension];
-                          const dimensionTotal = problemRanking?.dimension_totals?.[dim.dimension];
-                          return (
-                            <div key={i} className={`px-2 py-2 text-center text-sm font-semibold ${i < problem.dimensions.length - 1 ? "border-b border-gray-300" : ""}`}>
-                              {dimensionRank ? (
-                                <span className="text-blue-600">#{dimensionRank}{dimensionTotal ? `/${dimensionTotal}` : ''}</span>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </td>
-                    )}
-                    <td className="px-4 py-6 align-top">
-                      <div className="flex flex-col items-center justify-center h-full">
-                        <div className="font-bold text-black text-lg mb-2">{problem.totalSubmissions || 0}</div>
-                        <Link href={`/problems/${problem.problemId}/leaderboard`} className="text-blue-600 text-xs hover:underline mb-3">
-                          View all rankers of the Problem
-                        </Link>
-                        <button 
-                          onClick={() => handleSolveProblem(problem.problemId)}
-                          className="bg-gray-200 border border-black px-4 py-1.5 rounded text-black text-sm font-medium hover:bg-gray-300"
-                        >
-                          Solve Problem
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+            {/* Global search results */}
+            {filtered !== null ? (
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm text-gray-600">
+                    {filtered.length} result{filtered.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+                  </span>
+                  <button onClick={() => setSearchQuery('')} className="text-xs text-blue-600 hover:underline">Clear</button>
+                </div>
+                {filtered.length === 0
+                  ? <p className="text-gray-400 text-sm py-8 text-center">No problems match your search.</p>
+                  : <ProblemTable problems={filtered} contestId={groups[0]?.contestId} userRankings={userRankings} />
+                }
+              </div>
+            ) : (
+              /* Grouped by contest */
+              groups.map(group => (
+                <div key={group.contestId} className="mb-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-black text-white px-4 py-2 rounded-t font-bold text-sm">
+                      {group.contestName}
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded border font-medium ${
+                      group.status === 'active' || group.status === 'ongoing'
+                        ? 'bg-green-100 text-green-700 border-green-300'
+                        : group.status === 'upcoming'
+                        ? 'bg-blue-100 text-blue-700 border-blue-300'
+                        : 'bg-gray-100 text-gray-600 border-gray-300'
+                    }`}>
+                      {group.status}
+                    </span>
+                    <Link href={`/contests/${group.contestId}/leaderboard`} className="text-xs text-blue-600 hover:underline ml-auto">
+                      View contest leaderboard →
+                    </Link>
+                  </div>
+                  {group.problems.length === 0
+                    ? <p className="text-gray-400 text-sm py-4 bg-white border border-black px-4">No problems in this contest yet.</p>
+                    : <ProblemTable problems={group.problems} contestId={group.contestId} userRankings={userRankings} />
+                  }
+                </div>
+              ))
+            )}
+          </>
+        )}
       </main>
     </div>
-  );
+  )
 }
