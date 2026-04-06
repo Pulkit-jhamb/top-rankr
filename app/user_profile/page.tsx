@@ -64,7 +64,7 @@ const UserProfile = () => {
     return activities;
   };
 
-  const generateActivityDataFromBackend = (heatmapData: any) => {
+  const generateActivityDataFromBackend = (heatmapData: Record<string, number>): Record<string, number[][]> => {
     const months = [
       "November",
       "December",
@@ -80,7 +80,7 @@ const UserProfile = () => {
       "October",
     ];
 
-    const activities: any = {};
+    const activities: Record<string, number[][]> = {};
     months.forEach((month) => {
       const weeksCount = month === "November" || month === "October" ? 5 : 4;
       activities[month] = Array.from({ length: weeksCount }, () =>
@@ -89,7 +89,7 @@ const UserProfile = () => {
     });
 
     // Fill in actual data from backend
-    Object.entries(heatmapData).forEach(([date, count]: [string, any]) => {
+    Object.entries(heatmapData).forEach(([date, count]) => {
       const d = new Date(date);
       const monthName = months[d.getMonth()];
       if (activities[monthName]) {
