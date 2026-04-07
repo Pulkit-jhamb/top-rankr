@@ -6,7 +6,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import TopRankerNavbar from '@/components/navbar'
 
-type Tab = 'dashboard' | 'users' | 'submissions' | 'add-contest' | 'add-problem'
+type Tab = 'dashboard' | 'users' | 'submissions' | 'contributions' | 'add-contest' | 'add-problem'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = Record<string, any>
@@ -259,6 +259,19 @@ function Submissions() {
 }
 
 // ─── Add Contest ──────────────────────────────────────────────────────────────
+function ContestField({ label, k, type = 'text', placeholder = '', value, onChange }: {
+  label: string, k: string, type?: string, placeholder?: string,
+  value: string, onChange: (k: string, v: string) => void
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(k, e.target.value)} placeholder={placeholder}
+        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-gray-400" />
+    </div>
+  )
+}
+
 function AddContest() {
   const [form, setForm] = useState({
     eventId: '', name: '', organizer: '', type: 'Open',
@@ -288,21 +301,13 @@ function AddContest() {
     } finally { setSaving(false) }
   }
 
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string, k: string, type?: string, placeholder?: string }) => (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
-      <input type={type} value={form[k as keyof typeof form]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-gray-400" />
-    </div>
-  )
-
   return (
     <div className="max-w-2xl space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Event ID *" k="eventId" placeholder="e.g. CONF-2026" />
-        <Field label="Contest Name *" k="name" placeholder="e.g. Spring Optimization 2026" />
-        <Field label="Organizer *" k="organizer" placeholder="University / Lab name" />
-        <Field label="Event Code" k="eventCode" placeholder="Optional access code" />
+        <ContestField label="Event ID *" k="eventId" placeholder="e.g. CONF-2026" value={form.eventId} onChange={set} />
+        <ContestField label="Contest Name *" k="name" placeholder="e.g. Spring Optimization 2026" value={form.name} onChange={set} />
+        <ContestField label="Organizer *" k="organizer" placeholder="University / Lab name" value={form.organizer} onChange={set} />
+        <ContestField label="Event Code" k="eventCode" placeholder="Optional access code" value={form.eventCode} onChange={set} />
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
           <select value={form.type} onChange={e => set('type', e.target.value)}
@@ -317,9 +322,9 @@ function AddContest() {
             {['upcoming','active','ongoing','ended','closed'].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
-        <Field label="Prize ($)" k="prize" type="number" placeholder="0" />
-        <Field label="Start Date" k="startDate" type="datetime-local" />
-        <Field label="End Date" k="endDate" type="datetime-local" />
+        <ContestField label="Prize ($)" k="prize" type="number" placeholder="0" value={form.prize} onChange={set} />
+        <ContestField label="Start Date" k="startDate" type="datetime-local" value={form.startDate} onChange={set} />
+        <ContestField label="End Date" k="endDate" type="datetime-local" value={form.endDate} onChange={set} />
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">Problem IDs (comma-separated)</label>
@@ -335,6 +340,19 @@ function AddContest() {
 }
 
 // ─── Add Problem ─────────────────────────────────────────────────────────────
+function ProblemField({ label, k, type = 'text', placeholder = '', value, onChange }: {
+  label: string, k: string, type?: string, placeholder?: string,
+  value: string, onChange: (k: string, v: string) => void
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(k, e.target.value)} placeholder={placeholder}
+        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-gray-400" />
+    </div>
+  )
+}
+
 function AddProblem() {
   const [form, setForm] = useState({
     problemId: '', name: '', level: 'Medium', type: 'Minimization',
@@ -368,19 +386,11 @@ function AddProblem() {
     } finally { setSaving(false) }
   }
 
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string, k: string, type?: string, placeholder?: string }) => (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
-      <input type={type} value={form[k as keyof typeof form]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-gray-400" />
-    </div>
-  )
-
   return (
     <div className="max-w-2xl space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Problem ID *" k="problemId" placeholder="e.g. TR-010" />
-        <Field label="Problem Name *" k="name" placeholder="e.g. Rastrigin Function" />
+        <ProblemField label="Problem ID *" k="problemId" placeholder="e.g. TR-010" value={form.problemId} onChange={set} />
+        <ProblemField label="Problem Name *" k="name" placeholder="e.g. Rastrigin Function" value={form.name} onChange={set} />
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Level</label>
           <select value={form.level} onChange={e => set('level', e.target.value)}
@@ -395,9 +405,9 @@ function AddProblem() {
             {['Minimization','Maximization','Multi-Objective'].map(t => <option key={t}>{t}</option>)}
           </select>
         </div>
-        <Field label="Category" k="category" placeholder="e.g. Continuous Optimization" />
-        <Field label="Tags (comma-separated)" k="tags" placeholder="e.g. unimodal, noisy" />
-        <Field label="Dimensions (comma-separated)" k="dimensions" placeholder="10,20,30" />
+        <ProblemField label="Category" k="category" placeholder="e.g. Continuous Optimization" value={form.category} onChange={set} />
+        <ProblemField label="Tags (comma-separated)" k="tags" placeholder="e.g. unimodal, noisy" value={form.tags} onChange={set} />
+        <ProblemField label="Dimensions (comma-separated)" k="dimensions" placeholder="10,20,30" value={form.dimensions} onChange={set} />
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
           <select value={form.status} onChange={e => set('status', e.target.value)}
@@ -405,9 +415,9 @@ function AddProblem() {
             {['active','inactive','draft'].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
-        <Field label="Bounds Min" k="boundsMin" type="number" />
-        <Field label="Bounds Max" k="boundsMax" type="number" />
-        <Field label="Global Minimum" k="globalMinimum" type="number" />
+        <ProblemField label="Bounds Min" k="boundsMin" type="number" value={form.boundsMin} onChange={set} />
+        <ProblemField label="Bounds Max" k="boundsMax" type="number" value={form.boundsMax} onChange={set} />
+        <ProblemField label="Global Minimum" k="globalMinimum" type="number" value={form.globalMinimum} onChange={set} />
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
@@ -428,6 +438,238 @@ function AddProblem() {
         className="bg-gray-800 hover:bg-black disabled:opacity-60 text-white px-6 py-2 rounded font-medium transition">
         {saving ? 'Creating…' : 'Create Problem'}
       </button>
+    </div>
+  )
+}
+
+// ─── Contributions ──────────────────────────────────────────────────────────
+function Contributions() {
+  const [contribs, setContribs]           = useState<AnyObj[]>([])
+  const [loading, setLoading]             = useState(true)
+  const [statusFilter, setStatusFilter]   = useState('pending')
+  const [page, setPage]                   = useState(1)
+  const [totalPages, setTP]               = useState(1)
+  const [accepting, setAccepting]         = useState<AnyObj | null>(null)
+  const [rejecting, setRejecting]         = useState<AnyObj | null>(null)
+  const [rejectReason, setRejectReason]   = useState('')
+  const [saving, setSaving]               = useState(false)
+  const [acceptForm, setAcceptForm]       = useState({
+    problemId: '', level: 'Medium', type: 'Minimization', category: '',
+    dimensions: '10,20,30', boundsMin: '-10', boundsMax: '10',
+    globalMinimum: '0', formula: '', constraint: '', contestId: '',
+  })
+
+  const load = (p = 1, s = statusFilter) => {
+    setLoading(true)
+    axios.get(`${API}/api/admin/contributions`, {
+      headers: authHeaders(),
+      params: { page: p, limit: 20, status: s },
+    }).then(r => {
+      setContribs(r.data.data || [])
+      setTP(r.data.pagination?.pages || 1)
+    }).catch(() => toast.error('Failed to load contributions'))
+      .finally(() => setLoading(false))
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [])
+
+  const openAccept = (c: AnyObj) => {
+    setAccepting(c)
+    setAcceptForm(f => ({ ...f, formula: c.fitnessFormula || '', constraint: c.constraint || '', level: c.level || 'Medium' }))
+  }
+
+  const doAccept = async () => {
+    if (!acceptForm.problemId.trim()) { toast.error('Problem ID is required'); return }
+    setSaving(true)
+    try {
+      await axios.post(`${API}/api/admin/contributions/${accepting!._id}/accept`, {
+        problemId:     acceptForm.problemId.trim(),
+        level:         acceptForm.level,
+        type:          acceptForm.type,
+        category:      acceptForm.category,
+        dimensions:    acceptForm.dimensions.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0),
+        boundsMin:     Number(acceptForm.boundsMin),
+        boundsMax:     Number(acceptForm.boundsMax),
+        globalMinimum: Number(acceptForm.globalMinimum),
+        formula:       acceptForm.formula,
+        constraint:    acceptForm.constraint,
+      }, { headers: authHeaders() })
+      if (acceptForm.contestId.trim()) {
+        await axios.post(`${API}/api/admin/contests/${acceptForm.contestId.trim()}/add-problem`,
+          { problemId: acceptForm.problemId.trim() }, { headers: authHeaders() }
+        ).catch(() => {})
+      }
+      toast.success('Problem created!')
+      setAccepting(null)
+      load(page)
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      toast.error(err.response?.data?.message || 'Failed to accept')
+    } finally { setSaving(false) }
+  }
+
+  const doReject = async () => {
+    setSaving(true)
+    try {
+      await axios.post(`${API}/api/admin/contributions/${rejecting!._id}/reject`,
+        { reason: rejectReason }, { headers: authHeaders() })
+      toast.success('Contribution rejected.')
+      setRejecting(null); setRejectReason('')
+      load(page)
+    } catch { toast.error('Failed to reject') }
+    finally { setSaving(false) }
+  }
+
+  const sColor: Record<string, string> = {
+    pending:  'bg-yellow-100 text-yellow-800 border-yellow-300',
+    accepted: 'bg-green-100 text-green-800 border-green-300',
+    rejected: 'bg-red-100 text-red-800 border-red-300',
+  }
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {['pending', 'accepted', 'rejected', ''].map(s => (
+          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); load(1, s) }}
+            className={`px-4 py-1.5 rounded text-sm font-medium border transition ${
+              statusFilter === s ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}>
+            {s ? s.charAt(0).toUpperCase() + s.slice(1) : 'All'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <p className="text-gray-400 py-8 text-center">Loading…</p> : (
+        <div className="space-y-4">
+          {contribs.length === 0 && (
+            <div className="bg-white border border-gray-200 rounded px-6 py-10 text-center text-gray-400">
+              No {statusFilter || ''} contributions found.
+            </div>
+          )}
+          {contribs.map(c => (
+            <div key={c._id} className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-bold text-black">{c.name}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${sColor[c.status] || 'bg-gray-100 text-gray-600 border-gray-300'}`}>{c.status}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded border ${
+                      c.level === 'Easy' ? 'bg-green-50 text-green-700 border-green-300' :
+                      c.level === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
+                      'bg-red-50 text-red-700 border-red-300'
+                    }`}>{c.level}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    By <span className="font-medium text-gray-700">{c.submitterName || c.submitterEmail || 'Unknown'}</span>
+                    {c.submittedAt && <> · {new Date(c.submittedAt).toLocaleDateString()}</>}
+                    {c.status === 'accepted' && c.problemId && <> · Problem ID: <span className="font-medium text-green-700">{c.problemId}</span></>}
+                    {c.status === 'rejected' && c.reason && <> · Reason: <span className="text-red-600">{c.reason}</span></>}
+                  </p>
+                  <p className="text-sm text-gray-700 mb-3 line-clamp-2">{c.description}</p>
+                  <div className="bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                    <p className="text-xs text-gray-500 font-medium mb-1">Fitness Formula:</p>
+                    <p className="text-sm font-mono text-gray-800 whitespace-pre-wrap">{c.fitnessFormula}</p>
+                    {c.constraint && <p className="text-xs text-gray-500 mt-1">Constraint: {c.constraint}</p>}
+                  </div>
+                </div>
+                {c.status === 'pending' && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button onClick={() => openAccept(c)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-medium">Accept</button>
+                    <button onClick={() => { setRejecting(c); setRejectReason('') }} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium">Reject</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2 mt-4 items-center">
+        <button disabled={page === 1} onClick={() => { setPage(p => p - 1); load(page - 1) }} className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-40">Prev</button>
+        <span className="text-sm text-gray-600">Page {page} of {totalPages}</span>
+        <button disabled={page === totalPages} onClick={() => { setPage(p => p + 1); load(page + 1) }} className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-40">Next</button>
+      </div>
+
+      {/* Accept Modal */}
+      {accepting && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-black">Accept: {accepting.name}</h3>
+              <button onClick={() => setAccepting(null)} className="text-gray-400 hover:text-black text-xl">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {[['Problem ID *', 'problemId', 'text', 'e.g. TR-010'], ['Category', 'category', 'text', 'e.g. Continuous'], ['Dimensions', 'dimensions', 'text', '10,20,30'], ['Global Minimum', 'globalMinimum', 'number', '0'], ['Bounds Min', 'boundsMin', 'number', '-10'], ['Bounds Max', 'boundsMax', 'number', '10']].map(([label, key, type, ph]) => (
+                  <div key={key}>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                    <input type={type} value={acceptForm[key as keyof typeof acceptForm]} placeholder={ph}
+                      onChange={e => setAcceptForm(f => ({ ...f, [key]: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Level</label>
+                  <select value={acceptForm.level} onChange={e => setAcceptForm(f => ({ ...f, level: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none">
+                    {['Easy','Medium','Hard'].map(l => <option key={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+                  <select value={acceptForm.type} onChange={e => setAcceptForm(f => ({ ...f, type: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none">
+                    {['Minimization','Maximization','Multi-Objective'].map(t => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Fitness Formula (Python-executable)</label>
+                <textarea value={acceptForm.formula} rows={3} onChange={e => setAcceptForm(f => ({ ...f, formula: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm font-mono text-black focus:outline-none resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Constraint</label>
+                <input value={acceptForm.constraint} onChange={e => setAcceptForm(f => ({ ...f, constraint: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Also add to Contest (Event ID, optional)</label>
+                <input value={acceptForm.contestId} placeholder="e.g. CONF-2026" onChange={e => setAcceptForm(f => ({ ...f, contestId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={doAccept} disabled={saving}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
+                  {saving ? 'Creating…' : 'Accept & Create Problem'}
+                </button>
+                <button onClick={() => setAccepting(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {rejecting && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-black mb-3">Reject: {rejecting.name}</h3>
+            <label className="block text-sm font-semibold text-gray-600 mb-1">Reason (optional)</label>
+            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3}
+              placeholder="e.g. Duplicate of existing problem, formula unclear…"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-black focus:outline-none resize-none mb-4" />
+            <div className="flex gap-3">
+              <button onClick={doReject} disabled={saving}
+                className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
+                {saving ? 'Rejecting…' : 'Confirm Reject'}
+              </button>
+              <button onClick={() => setRejecting(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -453,11 +695,12 @@ export default function AdminPage() {
   if (!ready) return null
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'dashboard',    label: 'Dashboard' },
-    { id: 'users',        label: 'Users' },
-    { id: 'submissions',  label: 'Submissions' },
-    { id: 'add-contest',  label: 'Add Contest' },
-    { id: 'add-problem',  label: 'Add Problem' },
+    { id: 'dashboard',     label: 'Dashboard' },
+    { id: 'users',         label: 'Users' },
+    { id: 'submissions',   label: 'Submissions' },
+    { id: 'contributions', label: 'Contributions' },
+    { id: 'add-contest',   label: 'Add Contest' },
+    { id: 'add-problem',   label: 'Add Problem' },
   ]
 
   return (
@@ -493,11 +736,12 @@ export default function AdminPage() {
 
         {/* Tab content */}
         <div>
-          {tab === 'dashboard'   && <Dashboard stats={stats} />}
-          {tab === 'users'       && <Users />}
-          {tab === 'submissions' && <Submissions />}
-          {tab === 'add-contest' && <AddContest />}
-          {tab === 'add-problem' && <AddProblem />}
+          {tab === 'dashboard'     && <Dashboard stats={stats} />}
+          {tab === 'users'           && <Users />}
+          {tab === 'submissions'     && <Submissions />}
+          {tab === 'contributions'   && <Contributions />}
+          {tab === 'add-contest'     && <AddContest />}
+          {tab === 'add-problem'     && <AddProblem />}
         </div>
       </main>
     </div>
