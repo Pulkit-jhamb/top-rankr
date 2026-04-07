@@ -15,7 +15,7 @@ export default function Page() {
     Promise.all([
       axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`),
       axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
-        params: { status: 'ongoing', limit: 3 }
+        params: { status: 'active,ongoing', limit: 3 }
       })
     ])
       .then(([statsRes, contestsRes]) => {

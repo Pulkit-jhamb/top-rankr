@@ -855,36 +855,59 @@ function Contributions() {
 // ─── Edit Contest ────────────────────────────────────────────────────────────
 function EditContest() {
   const [contests, setContests] = useState<AnyObj[]>([])
+  const [allProblems, setAllProblems] = useState<AnyObj[]>([])
   const [selected, setSelected] = useState<AnyObj | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [addProblemId, setAddProblemId] = useState('')
 
-  const fetchContests = () => {
+  const fetchAll = () => {
     setLoading(true)
-    axios.get(`${API}/api/admin/contests/all`, { headers: authHeaders() })
-      .then(r => setContests(r.data.data || []))
-      .catch(() => toast.error('Failed to load contests'))
+    Promise.all([
+      axios.get(`${API}/api/admin/contests/all`, { headers: authHeaders() }),
+      axios.get(`${API}/api/admin/problems`, { headers: authHeaders() }),
+    ]).then(([cr, pr]) => {
+      setContests(cr.data.data || [])
+      setAllProblems(pr.data.data || [])
+    }).catch(() => toast.error('Failed to load data'))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchContests() }, [])
+  useEffect(() => { fetchAll() }, [])
+
+  const removeProblem = (pid: string) => {
+    if (!selected) return
+    setSelected({ ...selected, problems: (selected.problems || []).filter((p: string) => p !== pid) })
+  }
+
+  const addProblem = () => {
+    if (!addProblemId || !selected) return
+    if ((selected.problems || []).includes(addProblemId)) {
+      toast.error('Problem already in contest'); return
+    }
+    setSelected({ ...selected, problems: [...(selected.problems || []), addProblemId] })
+    setAddProblemId('')
+  }
 
   const handleSave = async () => {
     if (!selected) return
     setSaving(true)
     try {
       await axios.put(`${API}/api/admin/contests/${selected.eventId}`, {
-        name: selected.name,
-        organizer: selected.organizer,
-        type: selected.type,
-        status: selected.status,
-        prize: selected.prize,
+        name:         selected.name,
+        organizer:    selected.organizer,
+        type:         selected.type,
+        status:       selected.status,
+        prize:        selected.prize,
         confHomePage: selected.confHomePage,
-        eventCode: selected.eventCode,
+        eventCode:    selected.eventCode,
+        problems:     selected.problems || [],
+        startDate:    selected.startDate || undefined,
+        endDate:      selected.endDate   || undefined,
       }, { headers: authHeaders() })
       toast.success('Contest updated!')
       setSelected(null)
-      fetchContests()
+      fetchAll()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       toast.error(error.response?.data?.message || 'Failed to update contest')
@@ -900,13 +923,12 @@ function EditContest() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {contests.map(c => (
             <div key={c.eventId} className="bg-white border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 transition">
-              <h3 className="font-bold text-black mb-2">{c.name}</h3>
-              <p className="text-xs text-gray-600 mb-2">Event ID: {c.eventId}</p>
-              <p className="text-xs text-gray-600 mb-2">Status: <span className="font-medium">{c.status}</span></p>
+              <h3 className="font-bold text-black mb-1">{c.name}</h3>
+              <p className="text-xs text-gray-600 mb-1">ID: {c.eventId}</p>
+              <p className="text-xs text-gray-600 mb-1">Status: <span className="font-medium">{c.status}</span></p>
               <p className="text-xs text-gray-600 mb-3">Problems: {c.problems?.length || 0}</p>
-              <button onClick={() => setSelected(c)} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
-                Edit
-              </button>
+              <button onClick={() => { setSelected({...c, problems: c.problems || []}); setAddProblemId('') }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">Edit</button>
             </div>
           ))}
           {contests.length === 0 && <p className="text-gray-400 col-span-3 text-center py-8">No contests found</p>}
@@ -920,25 +942,25 @@ function EditContest() {
               <h3 className="text-lg font-bold text-black">Edit: {selected.name}</h3>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-black text-xl">✕</button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Contest Name</label>
                   <input value={selected.name || ''} onChange={e => setSelected({...selected, name: e.target.value})}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Organizer</label>
                   <input value={selected.organizer || ''} onChange={e => setSelected({...selected, organizer: e.target.value})}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
                   <select value={selected.status || 'upcoming'} onChange={e => setSelected({...selected, status: e.target.value})}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
-                    <option value="upcoming">Upcoming</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
+                    {['upcoming','active','ongoing','completed'].map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -949,11 +971,75 @@ function EditContest() {
                     <option value="Invite-Only">Invite-Only</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Prize</label>
+                  <input value={selected.prize || ''} onChange={e => setSelected({...selected, prize: e.target.value})}
+                    placeholder="e.g. $1000" className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Event Code</label>
+                  <input value={selected.eventCode || ''} onChange={e => setSelected({...selected, eventCode: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Start Date</label>
+                  <input type="datetime-local"
+                    value={selected.startDate ? String(selected.startDate).slice(0, 16) : ''}
+                    onChange={e => setSelected({...selected, startDate: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">End Date</label>
+                  <input type="datetime-local"
+                    value={selected.endDate ? String(selected.endDate).slice(0, 16) : ''}
+                    onChange={e => setSelected({...selected, endDate: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
               </div>
-              <div className="flex gap-3 pt-2">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Conference Homepage URL</label>
+                <input value={selected.confHomePage || ''} onChange={e => setSelected({...selected, confHomePage: e.target.value})}
+                  placeholder="https://..." className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+              </div>
+
+              {/* Problems management */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Problems in Contest ({(selected.problems || []).length})
+                </label>
+                <div className="flex flex-wrap gap-2 mb-3 min-h-[44px] p-2 bg-gray-50 border border-gray-200 rounded">
+                  {(selected.problems || []).length === 0 && (
+                    <span className="text-gray-400 text-xs self-center">No problems added yet</span>
+                  )}
+                  {(selected.problems || []).map((pid: string) => (
+                    <span key={pid} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">
+                      {pid}
+                      <button onClick={() => removeProblem(pid)}
+                        className="text-blue-600 hover:text-red-600 font-bold text-base leading-none ml-0.5">×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <select value={addProblemId} onChange={e => setAddProblemId(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    <option value="">-- Select problem to add --</option>
+                    {allProblems
+                      .filter(p => !(selected.problems || []).includes(p.problemId))
+                      .map(p => (
+                        <option key={p.problemId} value={p.problemId}>{p.name} ({p.problemId})</option>
+                      ))}
+                  </select>
+                  <button onClick={addProblem} disabled={!addProblemId}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-4 py-2 rounded text-sm font-medium">
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t">
                 <button onClick={handleSave} disabled={saving}
                   className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
-                  {saving ? 'Saving…' : 'Save Changes'}
+                  {saving ? 'Saving…' : 'Save All Changes'}
                 </button>
                 <button onClick={() => setSelected(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               </div>
@@ -971,6 +1057,8 @@ function EditProblem() {
   const [selected, setSelected] = useState<AnyObj | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [tagsStr, setTagsStr] = useState('')
+  const [dimsStr, setDimsStr] = useState('')
 
   const fetchProblems = () => {
     setLoading(true)
@@ -982,10 +1070,38 @@ function EditProblem() {
 
   useEffect(() => { fetchProblems() }, [])
 
+  const openEdit = (p: AnyObj) => {
+    setSelected(p)
+    setTagsStr((p.tags || []).join(', '))
+    const dims = (p.dimensions || []).map((d: AnyObj) =>
+      typeof d === 'object' ? d.dimension : d
+    ).join(', ')
+    setDimsStr(dims)
+  }
+
+  const ff = selected?.fitnessFunction || {}
+
+  const setFF = (key: string, val: string | number) =>
+    setSelected((s: AnyObj | null) => s ? {
+      ...s,
+      fitnessFunction: { ...s.fitnessFunction, [key]: val }
+    } : s)
+
+  const setFFBounds = (key: 'min' | 'max', val: number) =>
+    setSelected((s: AnyObj | null) => s ? {
+      ...s,
+      fitnessFunction: {
+        ...s.fitnessFunction,
+        bounds: { ...(s.fitnessFunction?.bounds || {}), [key]: val }
+      }
+    } : s)
+
   const handleSave = async () => {
     if (!selected) return
     setSaving(true)
     try {
+      const dims = dimsStr.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n) && n > 0)
+      const tags = tagsStr.split(',').map(s => s.trim()).filter(Boolean)
       await axios.put(`${API}/api/admin/problems/${selected.problemId}`, {
         name:        selected.name,
         level:       selected.level,
@@ -993,7 +1109,17 @@ function EditProblem() {
         category:    selected.category,
         description: selected.description,
         status:      selected.status,
-        tags:        selected.tags,
+        tags,
+        dimensions:  dims.map(d => ({ dimension: d, submissions: 0 })),
+        fitnessFunction: {
+          formula:       ff.formula       || '',
+          constraint:    ff.constraint    || '',
+          globalMinimum: Number(ff.globalMinimum ?? 0),
+          bounds: {
+            min: Number(ff.bounds?.min ?? -10),
+            max: Number(ff.bounds?.max ??  10),
+          },
+        },
       }, { headers: authHeaders() })
       toast.success('Problem updated!')
       setSelected(null)
@@ -1013,13 +1139,11 @@ function EditProblem() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {problems.map(p => (
             <div key={p.problemId} className="bg-white border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 transition">
-              <h3 className="font-bold text-black mb-2">{p.name}</h3>
-              <p className="text-xs text-gray-600 mb-2">Problem ID: {p.problemId}</p>
-              <p className="text-xs text-gray-600 mb-2">Level: <span className="font-medium">{p.level}</span></p>
+              <h3 className="font-bold text-black mb-1">{p.name}</h3>
+              <p className="text-xs text-gray-600 mb-1">ID: {p.problemId}</p>
+              <p className="text-xs text-gray-600 mb-1">Level: <span className="font-medium">{p.level}</span></p>
               <p className="text-xs text-gray-600 mb-3">Status: {p.status}</p>
-              <button onClick={() => setSelected(p)} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
-                Edit
-              </button>
+              <button onClick={() => openEdit(p)} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">Edit</button>
             </div>
           ))}
           {problems.length === 0 && <p className="text-gray-400 col-span-3 text-center py-8">No problems found</p>}
@@ -1030,49 +1154,103 @@ function EditProblem() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-black">Edit: {selected.name}</h3>
+              <h3 className="text-lg font-bold text-black">Edit: {selected.name} <span className="text-sm text-gray-500 font-normal">({selected.problemId})</span></h3>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-black text-xl">✕</button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
+
+              {/* Basic info */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Problem Name</label>
                   <input value={selected.name || ''} onChange={e => setSelected({...selected, name: e.target.value})}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+                  <input value={selected.category || ''} onChange={e => setSelected({...selected, category: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Level</label>
                   <select value={selected.level || 'Medium'} onChange={e => setSelected({...selected, level: e.target.value})}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    {['Easy','Medium','Hard'].map(l => <option key={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
+                  <select value={selected.type || 'Minimization'} onChange={e => setSelected({...selected, type: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    {['Minimization','Maximization','Multi-Objective'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
                   <select value={selected.status || 'active'} onChange={e => setSelected({...selected, status: e.target.value})}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="draft">Draft</option>
+                    {['active','inactive','draft'].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
-                  <input value={selected.category || ''} onChange={e => setSelected({...selected, category: e.target.value})}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Dimensions (comma-separated)</label>
+                  <input value={dimsStr} onChange={e => setDimsStr(e.target.value)} placeholder="10,20,30"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Tags (comma-separated)</label>
+                <input value={tagsStr} onChange={e => setTagsStr(e.target.value)} placeholder="e.g. unimodal, noisy, continuous"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
                 <textarea value={selected.description || ''} onChange={e => setSelected({...selected, description: e.target.value})} rows={3}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none resize-none" />
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none resize-none focus:ring-1 focus:ring-blue-400" />
               </div>
-              <div className="flex gap-3 pt-2">
+
+              {/* Fitness Function */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-bold text-gray-800 mb-3">Fitness Function</label>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Formula</label>
+                    <textarea value={ff.formula || ''} onChange={e => setFF('formula', e.target.value)} rows={2}
+                      placeholder="e.g. f(x) = sum(x_i^2)"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm font-mono focus:outline-none resize-none focus:ring-1 focus:ring-blue-400" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Constraint</label>
+                    <input value={ff.constraint || ''} onChange={e => setFF('constraint', e.target.value)}
+                      placeholder="e.g. -10 ≤ xi ≤ 10"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Bounds Min</label>
+                      <input type="number" value={ff.bounds?.min ?? -10} onChange={e => setFFBounds('min', Number(e.target.value))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Bounds Max</label>
+                      <input type="number" value={ff.bounds?.max ?? 10} onChange={e => setFFBounds('max', Number(e.target.value))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Global Minimum</label>
+                      <input type="number" value={ff.globalMinimum ?? 0} onChange={e => setFF('globalMinimum', Number(e.target.value))}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t">
                 <button onClick={handleSave} disabled={saving}
                   className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
-                  {saving ? 'Saving…' : 'Save Changes'}
+                  {saving ? 'Saving…' : 'Save All Changes'}
                 </button>
                 <button onClick={() => setSelected(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               </div>

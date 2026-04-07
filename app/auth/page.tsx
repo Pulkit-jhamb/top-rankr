@@ -57,6 +57,16 @@ export default function AuthPage() {
           setLoading(false)
           return
         }
+        if (!formData.country.trim()) {
+          setError('Country is required')
+          setLoading(false)
+          return
+        }
+        if (!formData.institution.trim()) {
+          setError('Institution is required')
+          setLoading(false)
+          return
+        }
       }
 
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup'
@@ -206,33 +216,31 @@ export default function AuthPage() {
                   />
                 </div>
 
-                {formData.role === 'student' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Institution (Optional)</label>
-                      <input
-                        type="text"
-                        name="institution"
-                        value={formData.institution}
-                        onChange={handleChange}
-                        className="w-full border-2 border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
-                        placeholder="Enter your institution"
-                      />
-                    </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Institution <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleChange}
+                    className="w-full border-2 border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+                    placeholder="Enter your institution"
+                    required
+                  />
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Country (Optional)</label>
-                      <input
-                        type="text"
-                        name="country"
-                        value={formData.country}
-                        onChange={handleChange}
-                        className="w-full border-2 border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
-                        placeholder="Enter your country"
-                      />
-                    </div>
-                  </>
-                )}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Country <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="country"
+                    value={formData.country}
+                    onChange={handleChange}
+                    className="w-full border-2 border-gray-300 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+                    placeholder="Enter your country"
+                    required
+                  />
+                </div>
               </>
             )}
 

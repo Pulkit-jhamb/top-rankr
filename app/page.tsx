@@ -57,7 +57,7 @@ export default function Page() {
         const [statsRes, contestsRes] = await Promise.all([
           axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/statistics`),
           axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/contests`, {
-            params: { status: 'ongoing', limit: 5 }
+            params: { status: 'active,ongoing', limit: 5 }
           })
         ]);
 
@@ -122,17 +122,19 @@ export default function Page() {
             <ul className="space-y-4">
               {contests.map((contest, index) => (
                 <li key={contest._id || index}>
-                  <div className="font-bold text-black mb-1">{contest.name}</div>
-                  <div className="text-black text-sm">
-                    {contest.problems?.length ?? 0} Problems
-                    {contest.prize ? ` | Prize $${contest.prize}` : ''}
-                    {contest.startDate
-                      ? ` | Start: ${new Date(contest.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                      : ''}
-                    {contest.participantCount !== undefined
-                      ? ` | ${contest.participantCount} Participants`
-                      : ''}
-                  </div>
+                  <Link href={`/contests/${contest.eventId}`}>
+                    <div className="font-bold text-black mb-1 hover:text-blue-600 transition-colors">{contest.name} – by {contest.organizer}</div>
+                    <div className="text-black text-sm">
+                      {contest.problems?.length ?? 0} Problems
+                      {contest.prize ? ` | Prize $${contest.prize}` : ''}
+                      {contest.startDate
+                        ? ` | Start: ${new Date(contest.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : ''}
+                      {contest.participantCount !== undefined
+                        ? ` | ${contest.participantCount} Participants`
+                        : ''}
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
