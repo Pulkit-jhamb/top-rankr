@@ -9,6 +9,7 @@ type NavItem = {
   href: string;
   icon?: string;
   highlight?: boolean;
+  studentOnly?: boolean;
 };
 
 const baseNavItems: NavItem[] = [
@@ -17,7 +18,7 @@ const baseNavItems: NavItem[] = [
   { label: "Contests", href: "/contests" },
   { label: "Problems", href: "/problems" },
   { label: "Leaderboard", href: "/leadership" },
-  { label: "Contribute", href: "/contribute"},
+  { label: "Contribute", href: "/contribute", studentOnly: true },
   { label: "Statistics", href: "/statistics" },
 ];
 
@@ -25,7 +26,7 @@ export default function TopRankerNavbar() {
   const [authState, setAuthState] = useState({ isAuthenticated: false, userRole: 'student' });
   const { isAuthenticated, userRole } = authState;
   const navItems = userRole === 'admin'
-    ? [...baseNavItems, { label: 'Admin', href: '/admin', highlight: true }]
+    ? [...baseNavItems.filter(item => !item.studentOnly), { label: 'Admin', href: '/admin', highlight: true }]
     : baseNavItems;
   const [userName, setUserName] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);

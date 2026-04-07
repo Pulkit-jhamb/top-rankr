@@ -248,16 +248,24 @@ export default function ProblemDetailPage() {
               {/* Download Links */}
               <div className="mt-6">
                 <p className="font-bold mb-3 text-black">Download Fitness Function Code:</p>
-                <a
-                  href={`${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/fitness-code`}
-                  download
-                  className="inline-flex items-center gap-2 bg-gray-200 hover:bg-gray-300 border border-gray-400 text-black px-4 py-2 rounded font-medium transition text-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Python
-                </a>
+                <div className="flex items-start gap-4 flex-wrap">
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL}/api/problems/${problemId}/fitness-code`}
+                    download
+                    className="inline-flex items-center gap-2 bg-gray-200 hover:bg-gray-300 border border-gray-400 text-black px-4 py-2 rounded font-medium transition text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Python
+                  </a>
+                  <div className="bg-blue-50 border border-blue-300 rounded px-4 py-2 text-sm">
+                    <p className="font-semibold text-blue-900 mb-1">📝 Input Format:</p>
+                    <p className="text-blue-800">Enter values separated by commas or spaces</p>
+                    <p className="text-blue-700 text-xs mt-1">Example: <code className="bg-blue-100 px-1 rounded font-mono">1.5, 2.3, -0.8</code></p>
+                    <p className="text-red-600 text-xs font-semibold mt-1">⚠️ Do NOT use square brackets [ ]</p>
+                  </div>
+                </div>
               </div>
             </div>
 

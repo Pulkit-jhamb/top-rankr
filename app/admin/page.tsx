@@ -361,6 +361,16 @@ function AddProblem() {
     globalMinimum: '0', dimensions: '10,20,30', status: 'active',
   })
   const [saving, setSaving] = useState(false)
+  const [contests, setContests] = useState<AnyObj[]>([])
+  const [selectedContest, setSelectedContest] = useState('')
+  const [showNewContest, setShowNewContest] = useState(false)
+  const [newContest, setNewContest] = useState({ eventId: '', name: '', organizer: '' })
+
+  useEffect(() => {
+    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+      .then(r => setContests(r.data.data || []))
+      .catch(() => {})
+  }, [])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -368,8 +378,12 @@ function AddProblem() {
     if (!form.problemId || !form.name) {
       toast.error('Problem ID and Name are required'); return
     }
+    if (showNewContest && (!newContest.eventId || !newContest.name || !newContest.organizer)) {
+      toast.error('Contest Event ID, Name, and Organizer are required'); return
+    }
     setSaving(true)
     try {
+      // Create problem
       await axios.post(`${API}/api/admin/problems`, {
         ...form,
         boundsMin:     Number(form.boundsMin),
@@ -378,8 +392,30 @@ function AddProblem() {
         dimensions:    form.dimensions.split(',').map(s => Number(s.trim())).filter(n => !isNaN(n)),
         tags:          form.tags.split(',').map(s => s.trim()).filter(Boolean),
       }, { headers: authHeaders() })
-      toast.success('Problem created!')
+
+      // If creating new contest, create it first
+      if (showNewContest) {
+        await axios.post(`${API}/api/admin/contests`, {
+          ...newContest,
+          type: 'Open',
+          status: 'upcoming',
+          problems: [form.problemId],
+        }, { headers: authHeaders() })
+        toast.success('Problem and Contest created!')
+      } else if (selectedContest) {
+        // Add to existing contest
+        await axios.post(`${API}/api/admin/contests/${selectedContest}/add-problem`,
+          { problemId: form.problemId }, { headers: authHeaders() }
+        ).catch(() => {})
+        toast.success('Problem created and added to contest!')
+      } else {
+        toast.success('Problem created!')
+      }
+
       setForm({ problemId: '', name: '', level: 'Medium', type: 'Minimization', category: '', tags: '', description: '', formula: '', constraint: '', boundsMin: '-10', boundsMax: '10', globalMinimum: '0', dimensions: '10,20,30', status: 'active' })
+      setSelectedContest('')
+      setShowNewContest(false)
+      setNewContest({ eventId: '', name: '', organizer: '' })
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } }
       toast.error(err.response?.data?.message || 'Failed to create problem')
@@ -434,9 +470,58 @@ function AddProblem() {
         <input value={form.constraint} onChange={e => set('constraint', e.target.value)} placeholder="e.g. -10 ≤ xi ≤ 10"
           className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none focus:ring-1 focus:ring-gray-400" />
       </div>
+
+      {/* Add to Contest Section */}
+      <div className="border-t pt-4 space-y-3">
+        <label className="block text-sm font-semibold text-gray-700">Add to Contest (Optional)</label>
+        <select
+          value={showNewContest ? '__new__' : selectedContest}
+          onChange={e => {
+            if (e.target.value === '__new__') {
+              setShowNewContest(true)
+              setSelectedContest('')
+            } else {
+              setShowNewContest(false)
+              setSelectedContest(e.target.value)
+            }
+          }}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none"
+        >
+          <option value="">-- Don&apos;t add to any contest --</option>
+          <option value="__new__">+ Create New Contest</option>
+          {contests.map(c => (
+            <option key={c.eventId} value={c.eventId}>{c.name} ({c.eventId})</option>
+          ))}
+        </select>
+
+        {showNewContest && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-4 space-y-3">
+            <p className="text-xs font-semibold text-blue-800">Create New Contest</p>
+            <input
+              placeholder="Event ID (e.g. SPRING-2026) *"
+              value={newContest.eventId}
+              onChange={e => setNewContest(c => ({ ...c, eventId: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none"
+            />
+            <input
+              placeholder="Contest Name *"
+              value={newContest.name}
+              onChange={e => setNewContest(c => ({ ...c, name: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none"
+            />
+            <input
+              placeholder="Organizer *"
+              value={newContest.organizer}
+              onChange={e => setNewContest(c => ({ ...c, organizer: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none"
+            />
+          </div>
+        )}
+      </div>
+
       <button onClick={submit} disabled={saving}
         className="bg-gray-800 hover:bg-black disabled:opacity-60 text-white px-6 py-2 rounded font-medium transition">
-        {saving ? 'Creating…' : 'Create Problem'}
+        {saving ? 'Creating…' : (showNewContest ? 'Create Problem & Contest' : 'Create Problem')}
       </button>
     </div>
   )
@@ -453,6 +538,9 @@ function Contributions() {
   const [rejecting, setRejecting]         = useState<AnyObj | null>(null)
   const [rejectReason, setRejectReason]   = useState('')
   const [saving, setSaving]               = useState(false)
+  const [contests, setContests]           = useState<AnyObj[]>([])
+  const [showNewContest, setShowNewContest] = useState(false)
+  const [newContest, setNewContest]       = useState({ eventId: '', name: '', organizer: '' })
   const [acceptForm, setAcceptForm]       = useState({
     problemId: '', level: 'Medium', type: 'Minimization', category: '',
     dimensions: '10,20,30', boundsMin: '-10', boundsMax: '10',
@@ -472,7 +560,12 @@ function Contributions() {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+      .then(r => setContests(r.data.data || []))
+      .catch(() => {})
+  }, [])
 
   const openAccept = (c: AnyObj) => {
     setAccepting(c)
@@ -481,6 +574,9 @@ function Contributions() {
 
   const doAccept = async () => {
     if (!acceptForm.problemId.trim()) { toast.error('Problem ID is required'); return }
+    if (showNewContest && (!newContest.eventId || !newContest.name || !newContest.organizer)) {
+      toast.error('Contest Event ID, Name, and Organizer are required'); return
+    }
     setSaving(true)
     try {
       await axios.post(`${API}/api/admin/contributions/${accepting!._id}/accept`, {
@@ -495,13 +591,27 @@ function Contributions() {
         formula:       acceptForm.formula,
         constraint:    acceptForm.constraint,
       }, { headers: authHeaders() })
-      if (acceptForm.contestId.trim()) {
+
+      if (showNewContest) {
+        await axios.post(`${API}/api/admin/contests`, {
+          ...newContest,
+          type: 'Open',
+          status: 'upcoming',
+          problems: [acceptForm.problemId.trim()],
+        }, { headers: authHeaders() })
+        toast.success('Problem and Contest created!')
+      } else if (acceptForm.contestId.trim()) {
         await axios.post(`${API}/api/admin/contests/${acceptForm.contestId.trim()}/add-problem`,
           { problemId: acceptForm.problemId.trim() }, { headers: authHeaders() }
         ).catch(() => {})
+        toast.success('Problem created and added to contest!')
+      } else {
+        toast.success('Problem created!')
       }
-      toast.success('Problem created!')
+
       setAccepting(null)
+      setShowNewContest(false)
+      setNewContest({ eventId: '', name: '', organizer: '' })
       load(page)
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } }
@@ -635,14 +745,54 @@ function Contributions() {
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Also add to Contest (Event ID, optional)</label>
-                <input value={acceptForm.contestId} placeholder="e.g. CONF-2026" onChange={e => setAcceptForm(f => ({ ...f, contestId: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none" />
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Add to Contest (Optional)</label>
+                <select
+                  value={showNewContest ? '__new__' : acceptForm.contestId}
+                  onChange={e => {
+                    if (e.target.value === '__new__') {
+                      setShowNewContest(true)
+                      setAcceptForm(f => ({ ...f, contestId: '' }))
+                    } else {
+                      setShowNewContest(false)
+                      setAcceptForm(f => ({ ...f, contestId: e.target.value }))
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm text-black focus:outline-none"
+                >
+                  <option value="">-- Don&apos;t add to any contest --</option>
+                  <option value="__new__">+ Create New Contest</option>
+                  {contests.map(c => (
+                    <option key={c.eventId} value={c.eventId}>{c.name} ({c.eventId})</option>
+                  ))}
+                </select>
+                {showNewContest && (
+                  <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
+                    <p className="text-xs font-semibold text-blue-800">Create New Contest</p>
+                    <input
+                      placeholder="Event ID (e.g. SPRING-2026) *"
+                      value={newContest.eventId}
+                      onChange={e => setNewContest(c => ({ ...c, eventId: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none"
+                    />
+                    <input
+                      placeholder="Contest Name *"
+                      value={newContest.name}
+                      onChange={e => setNewContest(c => ({ ...c, name: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none"
+                    />
+                    <input
+                      placeholder="Organizer *"
+                      value={newContest.organizer}
+                      onChange={e => setNewContest(c => ({ ...c, organizer: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none"
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={doAccept} disabled={saving}
                   className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
-                  {saving ? 'Creating…' : 'Accept & Create Problem'}
+                  {saving ? 'Creating…' : (showNewContest ? 'Accept & Create Problem + Contest' : 'Accept & Create Problem')}
                 </button>
                 <button onClick={() => setAccepting(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               </div>

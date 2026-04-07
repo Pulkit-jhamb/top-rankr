@@ -17,10 +17,13 @@ export default function ContestDetailPage() {
   const [joinStatus, setJoinStatus] = useState<'idle'|'success'|'error'>('idle')
   const [joinMsg, setJoinMsg] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userRole, setUserRole] = useState('student')
 
   useEffect(() => {
     const token = localStorage.getItem('token')
+    const role = localStorage.getItem('role') || 'student'
     setIsLoggedIn(!!token)
+    setUserRole(role)
     fetchContest(token)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contestId])
@@ -144,7 +147,32 @@ export default function ContestDetailPage() {
 
             {/* Right: Participate Section */}
             <div className="p-6 bg-gray-100 border-l border-gray-300 flex flex-col items-center justify-center gap-4">
-              {isParticipant ? (
+              {userRole === 'admin' ? (
+                <>
+                  <div className="flex items-center gap-2 bg-blue-100 border border-blue-400 text-blue-700 px-4 py-2 rounded-lg font-semibold w-full justify-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Admin View Only
+                  </div>
+                  <p className="text-xs text-gray-600 text-center">
+                    Admins can view all contest details but cannot participate
+                  </p>
+                  <Link
+                    href={`/contests/${contestId}/leaderboard`}
+                    className="w-full text-center bg-gray-800 hover:bg-black text-white px-4 py-2 rounded font-medium transition"
+                  >
+                    View Contest Leaderboard
+                  </Link>
+                  <Link
+                    href="/admin"
+                    className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition"
+                  >
+                    Manage in Admin Panel
+                  </Link>
+                </>
+              ) : isParticipant ? (
                 <>
                   <div className="flex items-center gap-2 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded-lg font-semibold w-full justify-center">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import TopRankerNavbar from '@/components/navbar'
 
 export default function ContributePage() {
+  const router = useRouter()
   const [form, setForm] = useState({
     name: '',
     level: 'Easy',
@@ -14,6 +16,14 @@ export default function ContributePage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    const role = localStorage.getItem('role')
+    if (role === 'admin') {
+      toast.error('Admins cannot access the contribute page')
+      router.replace('/admin')
+    }
+  }, [router])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
