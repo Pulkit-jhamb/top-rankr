@@ -367,7 +367,7 @@ function AddProblem() {
   const [newContest, setNewContest] = useState({ eventId: '', name: '', organizer: '' })
 
   useEffect(() => {
-    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+    axios.get(`${API}/api/admin/contests/all`, { headers: authHeaders() })
       .then(r => setContests(r.data.data || []))
       .catch(() => {})
   }, [])
@@ -562,7 +562,7 @@ function Contributions() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load()
-    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+    axios.get(`${API}/api/admin/contests/all`, { headers: authHeaders() })
       .then(r => setContests(r.data.data || []))
       .catch(() => {})
   }, [])
@@ -859,24 +859,32 @@ function EditContest() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+  const fetchContests = () => {
+    setLoading(true)
+    axios.get(`${API}/api/admin/contests/all`, { headers: authHeaders() })
       .then(r => setContests(r.data.data || []))
       .catch(() => toast.error('Failed to load contests'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchContests() }, [])
 
   const handleSave = async () => {
     if (!selected) return
     setSaving(true)
     try {
-      await axios.put(`${API}/api/admin/contests/${selected.eventId}`, selected, { headers: authHeaders() })
+      await axios.put(`${API}/api/admin/contests/${selected.eventId}`, {
+        name: selected.name,
+        organizer: selected.organizer,
+        type: selected.type,
+        status: selected.status,
+        prize: selected.prize,
+        confHomePage: selected.confHomePage,
+        eventCode: selected.eventCode,
+      }, { headers: authHeaders() })
       toast.success('Contest updated!')
       setSelected(null)
-      setLoading(true)
-      axios.get(`${API}/api/contests`, { headers: authHeaders() })
-        .then(r => setContests(r.data.data || []))
-        .finally(() => setLoading(false))
+      fetchContests()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       toast.error(error.response?.data?.message || 'Failed to update contest')
@@ -964,24 +972,32 @@ function EditProblem() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    axios.get(`${API}/api/problems`, { headers: authHeaders() })
+  const fetchProblems = () => {
+    setLoading(true)
+    axios.get(`${API}/api/admin/problems`, { headers: authHeaders() })
       .then(r => setProblems(r.data.data || []))
       .catch(() => toast.error('Failed to load problems'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchProblems() }, [])
 
   const handleSave = async () => {
     if (!selected) return
     setSaving(true)
     try {
-      await axios.put(`${API}/api/admin/problems/${selected.problemId}`, selected, { headers: authHeaders() })
+      await axios.put(`${API}/api/admin/problems/${selected.problemId}`, {
+        name:        selected.name,
+        level:       selected.level,
+        type:        selected.type,
+        category:    selected.category,
+        description: selected.description,
+        status:      selected.status,
+        tags:        selected.tags,
+      }, { headers: authHeaders() })
       toast.success('Problem updated!')
       setSelected(null)
-      setLoading(true)
-      axios.get(`${API}/api/problems`, { headers: authHeaders() })
-        .then(r => setProblems(r.data.data || []))
-        .finally(() => setLoading(false))
+      fetchProblems()
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       toast.error(error.response?.data?.message || 'Failed to update problem')
