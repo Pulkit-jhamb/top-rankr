@@ -6,7 +6,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import TopRankerNavbar from '@/components/navbar'
 
-type Tab = 'dashboard' | 'users' | 'submissions' | 'contributions' | 'add-contest' | 'add-problem'
+type Tab = 'dashboard' | 'users' | 'submissions' | 'contributions' | 'add-contest' | 'add-problem' | 'edit-contest' | 'edit-problem'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = Record<string, any>
@@ -97,7 +97,7 @@ function Users() {
             </thead>
             <tbody>
               {users.map((u, i) => (
-                <tr key={u._id} className={`border-b border-gray-200 ${i % 2 === 0 ? 'bg-[#f5f5dc]' : 'bg-white'}`}>
+                <tr key={u._id} className={`border-b border-gray-200 ${i % 2 === 0 ? 'bg-yellow-50' : 'bg-white'}`}>
                   <td className="px-3 py-2 font-semibold text-black border-r border-gray-200">{u.name || '—'}</td>
                   <td className="px-3 py-2 text-gray-600 border-r border-gray-200 text-xs">{u.email}</td>
                   <td className="px-3 py-2 border-r border-gray-200">{u.country || '—'}</td>
@@ -164,10 +164,10 @@ function Users() {
                       <tbody>
                         {detail.submissions?.slice(0, 10).map((s: AnyObj) => (
                           <tr key={s._id} className="border-b border-gray-100">
-                            <td className="px-2 py-1 border-r border-gray-200 font-medium">{s.problemId}</td>
-                            <td className="px-2 py-1 border-r border-gray-200">D={s.dimension}</td>
-                            <td className="px-2 py-1 border-r border-gray-200">{s.score?.toFixed?.(4) ?? s.score}</td>
-                            <td className="px-2 py-1 text-gray-500">{s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : '—'}</td>
+                            <td className="px-2 py-1 border-r border-gray-200 font-medium text-black">{s.problemId}</td>
+                            <td className="px-2 py-1 border-r border-gray-200 text-black">D={s.dimension}</td>
+                            <td className="px-2 py-1 border-r border-gray-200 text-black">{s.score?.toFixed?.(4) ?? s.score}</td>
+                            <td className="px-2 py-1 text-gray-600">{s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : '—'}</td>
                           </tr>
                         ))}
                         {detail.submissions?.length === 0 && (
@@ -231,15 +231,15 @@ function Submissions() {
             </thead>
             <tbody>
               {subs.map((s, i) => (
-                <tr key={s._id} className={`border-b border-gray-200 ${i % 2 === 0 ? 'bg-[#f5f5dc]' : 'bg-white'}`}>
+                <tr key={s._id} className={`border-b border-gray-200 ${i % 2 === 0 ? 'bg-yellow-50' : 'bg-white'}`}>
                   <td className="px-3 py-2 font-semibold text-black border-r border-gray-200">
                     <Link href={`/problems/${s.problemId}`} className="text-blue-600 hover:underline">{s.problemId}</Link>
                   </td>
-                  <td className="px-3 py-2 border-r border-gray-200 text-xs">{s.userName || s.userId}</td>
-                  <td className="px-3 py-2 text-center border-r border-gray-200">D={s.dimension}</td>
-                  <td className="px-3 py-2 text-center border-r border-gray-200 font-medium">{typeof s.score === 'number' ? s.score.toFixed(4) : s.score}</td>
-                  <td className="px-3 py-2 text-center border-r border-gray-200 text-xs">{typeof s.fx === 'number' ? s.fx.toFixed(6) : '—'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-500">{s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—'}</td>
+                  <td className="px-3 py-2 border-r border-gray-200 text-xs text-black">{s.userName || s.userId}</td>
+                  <td className="px-3 py-2 text-center border-r border-gray-200 text-black">D={s.dimension}</td>
+                  <td className="px-3 py-2 text-center border-r border-gray-200 font-medium text-black">{typeof s.score === 'number' ? s.score.toFixed(4) : s.score}</td>
+                  <td className="px-3 py-2 text-center border-r border-gray-200 text-xs text-black">{typeof s.fx === 'number' ? s.fx.toFixed(6) : '—'}</td>
+                  <td className="px-3 py-2 text-xs text-gray-600">{s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—'}</td>
                 </tr>
               ))}
               {subs.length === 0 && (
@@ -683,12 +683,40 @@ function Contributions() {
                     {c.constraint && <p className="text-xs text-gray-500 mt-1">Constraint: {c.constraint}</p>}
                   </div>
                 </div>
-                {c.status === 'pending' && (
-                  <div className="flex flex-col gap-2 shrink-0">
-                    <button onClick={() => openAccept(c)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-medium">Accept</button>
-                    <button onClick={() => { setRejecting(c); setRejectReason('') }} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium">Reject</button>
-                  </div>
-                )}
+                <div className="flex flex-col gap-2 shrink-0">
+                  {c.status === 'pending' && (
+                    <>
+                      <button onClick={() => openAccept(c)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-medium">Accept</button>
+                      <button onClick={() => { setRejecting(c); setRejectReason('') }} className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium">Reject</button>
+                    </>
+                  )}
+                  {c.status === 'accepted' && c.problemId && (
+                    <div className="w-48">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Add to Contest:</label>
+                      <select
+                        onChange={async (e) => {
+                          if (!e.target.value) return
+                          try {
+                            await axios.post(`${API}/api/admin/contests/${e.target.value}/add-problem`,
+                              { problemId: c.problemId }, { headers: authHeaders() }
+                            )
+                            toast.success(`Added ${c.problemId} to contest`)
+                            e.target.value = ''
+                          } catch (err: unknown) {
+                            const error = err as { response?: { data?: { message?: string } } }
+                            toast.error(error.response?.data?.message || 'Failed to add to contest')
+                          }
+                        }}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-black focus:outline-none"
+                      >
+                        <option value="">-- Select Contest --</option>
+                        {contests.map(ct => (
+                          <option key={ct.eventId} value={ct.eventId}>{ct.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -824,6 +852,222 @@ function Contributions() {
   )
 }
 
+// ─── Edit Contest ────────────────────────────────────────────────────────────
+function EditContest() {
+  const [contests, setContests] = useState<AnyObj[]>([])
+  const [selected, setSelected] = useState<AnyObj | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    axios.get(`${API}/api/contests`, { headers: authHeaders() })
+      .then(r => setContests(r.data.data || []))
+      .catch(() => toast.error('Failed to load contests'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await axios.put(`${API}/api/admin/contests/${selected.eventId}`, selected, { headers: authHeaders() })
+      toast.success('Contest updated!')
+      setSelected(null)
+      setLoading(true)
+      axios.get(`${API}/api/contests`, { headers: authHeaders() })
+        .then(r => setContests(r.data.data || []))
+        .finally(() => setLoading(false))
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      toast.error(error.response?.data?.message || 'Failed to update contest')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-black mb-4">Edit Contest</h2>
+      {loading ? <p className="text-gray-400 py-8 text-center">Loading…</p> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {contests.map(c => (
+            <div key={c.eventId} className="bg-white border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 transition">
+              <h3 className="font-bold text-black mb-2">{c.name}</h3>
+              <p className="text-xs text-gray-600 mb-2">Event ID: {c.eventId}</p>
+              <p className="text-xs text-gray-600 mb-2">Status: <span className="font-medium">{c.status}</span></p>
+              <p className="text-xs text-gray-600 mb-3">Problems: {c.problems?.length || 0}</p>
+              <button onClick={() => setSelected(c)} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
+                Edit
+              </button>
+            </div>
+          ))}
+          {contests.length === 0 && <p className="text-gray-400 col-span-3 text-center py-8">No contests found</p>}
+        </div>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-black">Edit: {selected.name}</h3>
+              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-black text-xl">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Contest Name</label>
+                  <input value={selected.name || ''} onChange={e => setSelected({...selected, name: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Organizer</label>
+                  <input value={selected.organizer || ''} onChange={e => setSelected({...selected, organizer: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+                  <select value={selected.status || 'upcoming'} onChange={e => setSelected({...selected, status: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    <option value="upcoming">Upcoming</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
+                  <select value={selected.type || 'Open'} onChange={e => setSelected({...selected, type: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    <option value="Open">Open</option>
+                    <option value="Invite-Only">Invite-Only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleSave} disabled={saving}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button onClick={() => setSelected(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Edit Problem ────────────────────────────────────────────────────────────
+function EditProblem() {
+  const [problems, setProblems] = useState<AnyObj[]>([])
+  const [selected, setSelected] = useState<AnyObj | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    axios.get(`${API}/api/problems`, { headers: authHeaders() })
+      .then(r => setProblems(r.data.data || []))
+      .catch(() => toast.error('Failed to load problems'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await axios.put(`${API}/api/admin/problems/${selected.problemId}`, selected, { headers: authHeaders() })
+      toast.success('Problem updated!')
+      setSelected(null)
+      setLoading(true)
+      axios.get(`${API}/api/problems`, { headers: authHeaders() })
+        .then(r => setProblems(r.data.data || []))
+        .finally(() => setLoading(false))
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      toast.error(error.response?.data?.message || 'Failed to update problem')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-black mb-4">Edit Problem</h2>
+      {loading ? <p className="text-gray-400 py-8 text-center">Loading…</p> : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {problems.map(p => (
+            <div key={p.problemId} className="bg-white border-2 border-gray-300 rounded-lg p-4 hover:border-blue-500 transition">
+              <h3 className="font-bold text-black mb-2">{p.name}</h3>
+              <p className="text-xs text-gray-600 mb-2">Problem ID: {p.problemId}</p>
+              <p className="text-xs text-gray-600 mb-2">Level: <span className="font-medium">{p.level}</span></p>
+              <p className="text-xs text-gray-600 mb-3">Status: {p.status}</p>
+              <button onClick={() => setSelected(p)} className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
+                Edit
+              </button>
+            </div>
+          ))}
+          {problems.length === 0 && <p className="text-gray-400 col-span-3 text-center py-8">No problems found</p>}
+        </div>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-black">Edit: {selected.name}</h3>
+              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-black text-xl">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Problem Name</label>
+                  <input value={selected.name || ''} onChange={e => setSelected({...selected, name: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Level</label>
+                  <select value={selected.level || 'Medium'} onChange={e => setSelected({...selected, level: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+                  <select value={selected.status || 'active'} onChange={e => setSelected({...selected, status: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Category</label>
+                  <input value={selected.category || ''} onChange={e => setSelected({...selected, category: e.target.value})}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
+                <textarea value={selected.description || ''} onChange={e => setSelected({...selected, description: e.target.value})} rows={3}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-black text-sm focus:outline-none resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleSave} disabled={saving}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded font-medium text-sm">
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button onClick={() => setSelected(null)} className="border border-gray-300 px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Admin Page ─────────────────────────────────────────────────────────
 export default function AdminPage() {
   const router = useRouter()
@@ -851,6 +1095,8 @@ export default function AdminPage() {
     { id: 'contributions', label: 'Contributions' },
     { id: 'add-contest',   label: 'Add Contest' },
     { id: 'add-problem',   label: 'Add Problem' },
+    { id: 'edit-contest',  label: 'Edit Contest' },
+    { id: 'edit-problem',  label: 'Edit Problem' },
   ]
 
   return (
@@ -892,6 +1138,8 @@ export default function AdminPage() {
           {tab === 'contributions'   && <Contributions />}
           {tab === 'add-contest'     && <AddContest />}
           {tab === 'add-problem'     && <AddProblem />}
+          {tab === 'edit-contest'    && <EditContest />}
+          {tab === 'edit-problem'    && <EditProblem />}
         </div>
       </main>
     </div>
